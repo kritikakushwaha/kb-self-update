@@ -19,91 +19,112 @@ const { useState } = React;
 
 const AGENTS = {
   lisa: { id: "lisa", name: "Lisa Park", initials: "LP", color: "#E8A87C", role: "Senior HR Specialist", behavior: "Experienced. Catches KB errors. Verifies with HR leadership before responding." },
-  raj: { id: "raj", name: "Raj Patel", initials: "RP", color: "#8B7EC8", role: "HR Support Agent", behavior: "Newer agent. Sometimes trusts KB without verifying. Occasionally gives slightly different answers from Lisa." },
+  raj:  { id: "raj",  name: "Raj Patel",  initials: "RP", color: "#8B7EC8", role: "HR Support Agent",      behavior: "Newer agent. Sometimes trusts KB without verifying. Occasionally gives slightly different answers from Lisa." },
 };
 
 const KB_ARTICLES = [
-  { id: "kb-101", title: "Annual Benefits Enrollment Guide", queue: "HR", category: "Benefits", updated: "2025-09-01", deflection: 23, views: 342, content: "Open enrollment runs November 1-30 each year. Visit benefits.gusto.com to select your medical, dental, and vision plans. HSA contributions max at $3,650 for individual coverage. Dependent coverage max is $7,300.", issues: { wrong: "HSA limit is $3,650 (actual 2026: $4,150)", missing: "No mention of SpringHealth therapy benefit (12 sessions, added Q1 2026)" } },
-  { id: "kb-102", title: "How to Request PTO and Check Balance", queue: "HR", category: "Leave/PTO", updated: "2025-12-10", deflection: 44, views: 410, content: "Submit PTO requests via BambooHR at least 5 business days in advance. Manager approval required. Requests over 10 consecutive days need VP approval.", issues: { wrong: "Advance notice is 5 days (actual: 3 per March 2026 policy)" } },
-  { id: "kb-103", title: "Salary Adjustment Request Process", queue: "HR", category: "Compensation", updated: "2025-11-20", deflection: 62, views: 156, content: "Submit salary adjustment requests through BambooHR. Requires manager approval and VP sign-off for adjustments >10%.", issues: {} },
-  { id: "kb-104", title: "Tax Withholding Changes — W-4 Guide", queue: "HR", category: "Payroll", updated: "2026-01-15", deflection: 73, views: 89, content: "Update your W-4 through ADP Workforce Now. Changes take effect on the next full pay cycle. Processing takes 1-2 business days.", issues: {} },
-  { id: "kb-105", title: "How to View Your Pay Stub", queue: "HR", category: "Payroll", updated: "2026-02-01", deflection: 89, views: 67, content: "Log into ADP Workforce Now then Pay then Pay Statements. Direct deposit typically processes 1-2 business days before pay date.", issues: {} },
+  { id: "kb-101", title: "Annual Benefits Enrollment Guide",       queue: "HR", category: "Benefits",     updated: "2025-09-01", deflection: 23, views: 342, content: "Open enrollment runs November 1-30 each year. Visit benefits.gusto.com to select your medical, dental, and vision plans. HSA contributions max at $3,650 for individual coverage. Dependent coverage max is $7,300.", issues: { wrong: "HSA limit is $3,650 (actual 2026: $4,150)", missing: "No mention of SpringHealth therapy benefit (12 sessions, added Q1 2026)" } },
+  { id: "kb-102", title: "How to Request PTO and Check Balance",   queue: "HR", category: "Leave/PTO",    updated: "2025-12-10", deflection: 44, views: 410, content: "Submit PTO requests via BambooHR at least 5 business days in advance. Manager approval required. Requests over 10 consecutive days need VP approval.", issues: { wrong: "Advance notice is 5 days (actual: 3 per March 2026 policy)" } },
+  { id: "kb-103", title: "Salary Adjustment Request Process",      queue: "HR", category: "Compensation", updated: "2025-11-20", deflection: 62, views: 156, content: "Submit salary adjustment requests through BambooHR. Requires manager approval and VP sign-off for adjustments >10%.", issues: {} },
+  { id: "kb-104", title: "Tax Withholding Changes — W-4 Guide",   queue: "HR", category: "Payroll",      updated: "2026-01-15", deflection: 73, views: 89,  content: "Update your W-4 through ADP Workforce Now. Changes take effect on the next full pay cycle. Processing takes 1-2 business days.", issues: {} },
+  { id: "kb-105", title: "How to View Your Pay Stub",             queue: "HR", category: "Payroll",      updated: "2026-02-01", deflection: 89, views: 67,  content: "Log into ADP Workforce Now then Pay then Pay Statements. Direct deposit typically processes 1-2 business days before pay date.", issues: {} },
 ];
 
+// resolutionType: "informational" = agent provided knowledge; "action" = agent performed an action
 const TICKETS = [
-  { id: "WI-1192", title: "HSA contribution limit question", topic: "Benefits", status: "Resolved", created: "Mar 14", resolved: "Mar 14", agent: "lisa", kbRef: "kb-101", priority: "Low", messages: [
-    { from: "submitter", name: "Alex Chen", time: "Mar 14, 9:20 AM", text: "I'm trying to max out my HSA this year. The benefits page says the limit is $3,650 but I thought it went up. Can someone confirm?" },
-    { from: "ai", name: "AI Assistant", time: "Mar 14, 9:20 AM", text: "Based on our Benefits Enrollment Guide, the HSA contribution limit is $3,650 for individual coverage." },
-    { from: "submitter", name: "Alex Chen", time: "Mar 14, 9:22 AM", text: "That doesn't sound right. I saw the IRS announcement. Can a human check?" },
-    { from: "agent", name: "Lisa Park", time: "Mar 14, 10:45 AM", text: "Hi Alex — you're correct. The IRS updated HSA limits for 2026. The individual contribution limit is now $4,150, not $3,650. The knowledge base hasn't been updated yet. I've confirmed this with HR leadership." },
-  ], agentNotes: "KB article kb-101 has the wrong HSA limit. Says $3,650 but 2026 IRS limit is $4,150.", pipelineResult: { type: "wrong", subject: "HSA individual limit", articleSays: "$3,650", resolutionSays: "$4,150 (2026 IRS)", general: true, sourceMsg: "Lisa Park, Mar 14 10:45 AM" } },
+  { id: "WI-1192", title: "HSA contribution limit question", topic: "Benefits", status: "Resolved", created: "Mar 14", resolved: "Mar 14", agent: "lisa", kbRef: "kb-101", priority: "Low", resolutionType: "informational", messages: [
+    { from: "submitter", name: "Alex Chen",  time: "Mar 14, 9:20 AM",  text: "I'm trying to max out my HSA this year. The benefits page says the limit is $3,650 but I thought it went up. Can someone confirm?" },
+    { from: "ai",        name: "AI Assistant", time: "Mar 14, 9:20 AM",  text: "Based on our Benefits Enrollment Guide, the HSA contribution limit is $3,650 for individual coverage." },
+    { from: "submitter", name: "Alex Chen",  time: "Mar 14, 9:22 AM",  text: "That doesn't sound right. I saw the IRS announcement. Can a human check?" },
+    { from: "agent",     name: "Lisa Park",  time: "Mar 14, 10:45 AM", text: "Hi Alex — you're correct. The IRS updated HSA limits for 2026. The individual contribution limit is now $4,150, not $3,650. The knowledge base hasn't been updated yet. I've confirmed this with HR leadership." },
+  ], agentNotes: "KB article kb-101 has the wrong HSA limit. Says $3,650 but 2026 IRS limit is $4,150.", pipelineResult: { type: "outdated", subject: "HSA individual limit", articleSays: "$3,650", resolutionSays: "$4,150 (2026 IRS)", general: true, sourceMsg: "Lisa Park, Mar 14 10:45 AM" } },
 
-  { id: "WI-1212", title: "What's the HSA max contribution?", topic: "Benefits", status: "Resolved", created: "Mar 19", resolved: "Mar 19", agent: "raj", kbRef: "kb-101", priority: "Low", messages: [
+  { id: "WI-1212", title: "What's the HSA max contribution?", topic: "Benefits", status: "Resolved", created: "Mar 19", resolved: "Mar 19", agent: "raj", kbRef: "kb-101", priority: "Low", resolutionType: "informational", messages: [
     { from: "submitter", name: "Sam Torres", time: "Mar 19, 2:10 PM", text: "What's the maximum I can put into my HSA this year?" },
-    { from: "ai", name: "AI Assistant", time: "Mar 19, 2:10 PM", text: "The HSA contribution limit is $3,650 for individual coverage." },
+    { from: "ai",        name: "AI Assistant", time: "Mar 19, 2:10 PM", text: "The HSA contribution limit is $3,650 for individual coverage." },
     { from: "submitter", name: "Sam Torres", time: "Mar 19, 2:12 PM", text: "A coworker told me it's higher now. Can you double-check?" },
-    { from: "agent", name: "Raj Patel", time: "Mar 19, 3:30 PM", text: "Let me look into this. I believe the 2026 limit for individual HSA is $3,850. Let me know if you need anything else." },
-  ], agentNotes: null, pipelineResult: { type: "wrong", subject: "HSA individual limit", articleSays: "$3,650", resolutionSays: "$3,850", general: true, sourceMsg: "Raj Patel, Mar 19 3:30 PM" } },
+    { from: "agent",     name: "Raj Patel",  time: "Mar 19, 3:30 PM", text: "Let me look into this. I believe the 2026 limit for individual HSA is $3,850. Let me know if you need anything else." },
+  ], agentNotes: null, pipelineResult: { type: "outdated", subject: "HSA individual limit", articleSays: "$3,650", resolutionSays: "$3,850", general: true, sourceMsg: "Raj Patel, Mar 19 3:30 PM" } },
 
-  { id: "WI-1218", title: "HSA limit seems wrong in the portal", topic: "Benefits", status: "Resolved", created: "Mar 24", resolved: "Mar 24", agent: "lisa", kbRef: "kb-101", priority: "Medium", messages: [
+  { id: "WI-1218", title: "HSA limit seems wrong in the portal", topic: "Benefits", status: "Resolved", created: "Mar 24", resolved: "Mar 24", agent: "lisa", kbRef: "kb-101", priority: "Medium", resolutionType: "informational", messages: [
     { from: "submitter", name: "Jordan Blake", time: "Mar 24, 11:00 AM", text: "The benefits portal shows HSA limit as $3,650 but my tax advisor says it's $4,150 for 2026. Which is correct?" },
-    { from: "agent", name: "Lisa Park", time: "Mar 24, 11:30 AM", text: "Your tax advisor is correct. The 2026 IRS limit for individual HSA contributions is $4,150. Our portal hasn't been updated yet. Sorry for the confusion." },
-  ], agentNotes: "Third time this month. KB still shows $3,650. Really needs fixing.", pipelineResult: { type: "wrong", subject: "HSA individual limit", articleSays: "$3,650", resolutionSays: "$4,150 (2026 IRS)", general: true, sourceMsg: "Lisa Park, Mar 24 11:30 AM" } },
+    { from: "agent",     name: "Lisa Park",   time: "Mar 24, 11:30 AM", text: "Your tax advisor is correct. The 2026 IRS limit for individual HSA contributions is $4,150. Our portal hasn't been updated yet. Sorry for the confusion." },
+  ], agentNotes: "Third time this month. KB still shows $3,650. Really needs fixing.", pipelineResult: { type: "outdated", subject: "HSA individual limit", articleSays: "$3,650", resolutionSays: "$4,150 (2026 IRS)", general: true, sourceMsg: "Lisa Park, Mar 24 11:30 AM" } },
 
-  { id: "WI-1198", title: "Does company cover therapy sessions?", topic: "Benefits", status: "Resolved", created: "Mar 18", resolved: "Mar 18", agent: "lisa", kbRef: "kb-101", priority: "Medium", messages: [
+  { id: "WI-1198", title: "Does company cover therapy sessions?", topic: "Benefits", status: "Resolved", created: "Mar 18", resolved: "Mar 18", agent: "lisa", kbRef: "kb-101", priority: "Medium", resolutionType: "informational", messages: [
     { from: "submitter", name: "Priya Shah", time: "Mar 18, 3:00 PM", text: "I heard we now get free therapy sessions through some app. Is that true? Can't find anything in the benefits guide." },
-    { from: "ai", name: "AI Assistant", time: "Mar 18, 3:00 PM", text: "I don't have information about free therapy sessions in our Benefits Enrollment Guide. Let me connect you with a specialist." },
-    { from: "agent", name: "Lisa Park", time: "Mar 18, 4:15 PM", text: "Yes! As of Q1 2026, all employees have 12 free therapy sessions per year through SpringHealth. Sign up at springhealth.com/company using your work email. This is a new benefit that hasn't been added to the guide yet." },
-  ], agentNotes: "SpringHealth benefit launched Q1 but isn't in the KB yet. Multiple people will ask.", pipelineResult: { type: "missing", topic: "SpringHealth therapy benefit", userAsked: "Free therapy sessions", agentProvided: "12 sessions/year through SpringHealth, sign up at springhealth.com/company", general: true, sourceMsg: "Lisa Park, Mar 18 4:15 PM" } },
+    { from: "ai",        name: "AI Assistant", time: "Mar 18, 3:00 PM", text: "I don't have information about free therapy sessions in our Benefits Enrollment Guide. Let me connect you with a specialist." },
+    { from: "agent",     name: "Lisa Park",  time: "Mar 18, 4:15 PM", text: "Yes! As of Q1 2026, all employees have 12 free therapy sessions per year through SpringHealth. Sign up at springhealth.com/company using your work email. This is a new benefit that hasn't been added to the guide yet." },
+  ], agentNotes: "SpringHealth benefit launched Q1 but isn't in the KB yet. Multiple people will ask.", pipelineResult: { type: "incomplete", topic: "SpringHealth therapy benefit", userAsked: "Free therapy sessions", agentProvided: "12 sessions/year through SpringHealth, sign up at springhealth.com/company", general: true, sourceMsg: "Lisa Park, Mar 18 4:15 PM" } },
 
-  { id: "WI-1210", title: "How many therapy sessions do we get?", topic: "Benefits", status: "Resolved", created: "Mar 22", resolved: "Mar 22", agent: "raj", kbRef: "kb-101", priority: "Low", messages: [
+  { id: "WI-1210", title: "How many therapy sessions do we get?", topic: "Benefits", status: "Resolved", created: "Mar 22", resolved: "Mar 22", agent: "raj", kbRef: "kb-101", priority: "Low", resolutionType: "informational", messages: [
     { from: "submitter", name: "Mike Torres", time: "Mar 22, 10:00 AM", text: "Someone mentioned we get free therapy. How many sessions and how do I sign up?" },
-    { from: "agent", name: "Raj Patel", time: "Mar 22, 11:20 AM", text: "Yes, we have 12 free therapy sessions per year through SpringHealth. Go to springhealth.com/company and sign up with your work email." },
-  ], agentNotes: null, pipelineResult: { type: "missing", topic: "SpringHealth therapy benefit", userAsked: "Therapy sessions count + signup", agentProvided: "12 sessions via SpringHealth at springhealth.com/company", general: true, sourceMsg: "Raj Patel, Mar 22 11:20 AM" } },
+    { from: "agent",     name: "Raj Patel",   time: "Mar 22, 11:20 AM", text: "Yes, we have 12 free therapy sessions per year through SpringHealth. Go to springhealth.com/company and sign up with your work email." },
+  ], agentNotes: null, pipelineResult: { type: "incomplete", topic: "SpringHealth therapy benefit", userAsked: "Therapy sessions count + signup", agentProvided: "12 sessions via SpringHealth at springhealth.com/company", general: true, sourceMsg: "Raj Patel, Mar 22 11:20 AM" } },
 
-  { id: "WI-1205", title: "PTO request rejected — wrong advance notice?", topic: "Leave/PTO", status: "Resolved", created: "Mar 20", resolved: "Mar 20", agent: "lisa", kbRef: "kb-102", priority: "High", messages: [
+  { id: "WI-1205", title: "PTO request rejected — wrong advance notice?", topic: "Leave/PTO", status: "Resolved", created: "Mar 20", resolved: "Mar 20", agent: "lisa", kbRef: "kb-102", priority: "High", resolutionType: "informational", messages: [
     { from: "submitter", name: "Jordan Blake", time: "Mar 20, 8:30 AM", text: "I submitted PTO 4 days in advance and it got auto-rejected saying I need 5 days. But the policy changed?" },
-    { from: "ai", name: "AI Assistant", time: "Mar 20, 8:30 AM", text: "PTO requests must be submitted at least 5 business days in advance." },
+    { from: "ai",        name: "AI Assistant", time: "Mar 20, 8:30 AM", text: "PTO requests must be submitted at least 5 business days in advance." },
     { from: "submitter", name: "Jordan Blake", time: "Mar 20, 8:32 AM", text: "My manager says it's 3 days now. The AI is wrong." },
-    { from: "agent", name: "Lisa Park", time: "Mar 20, 9:15 AM", text: "Your manager is right. Advance notice was reduced to 3 business days effective March 1, 2026. I'll manually approve your request. The system hasn't been updated with the new policy yet." },
-  ], agentNotes: "PTO article still says 5 days. Policy changed to 3 days March 2026. VP threshold also changed 10 to 15 days.", pipelineResult: { type: "wrong", subject: "PTO advance notice period", articleSays: "5 business days", resolutionSays: "3 business days (March 2026 policy)", general: true, sourceMsg: "Lisa Park, Mar 20 9:15 AM" } },
+    { from: "agent",     name: "Lisa Park",   time: "Mar 20, 9:15 AM", text: "Your manager is right. Advance notice was reduced to 3 business days effective March 1, 2026. I'll manually approve your request. The system hasn't been updated with the new policy yet." },
+  ], agentNotes: "PTO article still says 5 days. Policy changed to 3 days March 2026. VP threshold also changed 10 to 15 days.", pipelineResult: { type: "outdated", subject: "PTO advance notice period", articleSays: "5 business days", resolutionSays: "3 business days (March 2026 policy)", general: true, sourceMsg: "Lisa Park, Mar 20 9:15 AM" } },
 
-  { id: "WI-1220", title: "Checking my HSA contribution limit", topic: "Benefits", status: "Resolved", created: "Mar 26", resolved: "Mar 26", agent: "raj", kbRef: "kb-101", priority: "Low", messages: [
-    { from: "submitter", name: "Dana Kim", time: "Mar 26, 1:00 PM", text: "Can you tell me the HSA contribution limit for this year?" },
-    { from: "ai", name: "AI Assistant", time: "Mar 26, 1:00 PM", text: "The HSA contribution limit is $3,650 for individual coverage." },
-    { from: "submitter", name: "Dana Kim", time: "Mar 26, 1:02 PM", text: "Thanks, could a person confirm?" },
-    { from: "agent", name: "Raj Patel", time: "Mar 26, 2:00 PM", text: "I can confirm — the HSA individual contribution limit is $3,650. You can set up contributions at benefits.gusto.com." },
+  { id: "WI-1220", title: "Checking my HSA contribution limit", topic: "Benefits", status: "Resolved", created: "Mar 26", resolved: "Mar 26", agent: "raj", kbRef: "kb-101", priority: "Low", resolutionType: "informational", messages: [
+    { from: "submitter", name: "Dana Kim",  time: "Mar 26, 1:00 PM", text: "Can you tell me the HSA contribution limit for this year?" },
+    { from: "ai",        name: "AI Assistant", time: "Mar 26, 1:00 PM", text: "The HSA contribution limit is $3,650 for individual coverage." },
+    { from: "submitter", name: "Dana Kim",  time: "Mar 26, 1:02 PM", text: "Thanks, could a person confirm?" },
+    { from: "agent",     name: "Raj Patel", time: "Mar 26, 2:00 PM", text: "I can confirm — the HSA individual contribution limit is $3,650. You can set up contributions at benefits.gusto.com." },
   ], agentNotes: null, pipelineResult: null },
 
-  { id: "WI-1225", title: "How to set up 2FA for GitHub Enterprise", topic: "IT/Security", status: "Resolved", created: "Mar 25", resolved: "Mar 25", agent: "lisa", kbRef: null, priority: "Medium", messages: [
-    { from: "submitter", name: "Taylor Reeves", time: "Mar 25, 9:00 AM", text: "IT is requiring 2FA on GitHub. How do I set it up?" },
-    { from: "ai", name: "AI Assistant", time: "Mar 25, 9:00 AM", text: "I don't have a knowledge base article about GitHub 2FA setup. Let me connect you with support." },
-    { from: "agent", name: "Lisa Park", time: "Mar 25, 10:00 AM", text: "Go to github.com, then Settings, then Password and authentication, then Two-factor authentication, then Enable. Choose Authenticator app and scan the QR code with Google Authenticator or Authy. Save your backup codes somewhere secure." },
-  ], agentNotes: "No KB article for GitHub 2FA. Third person this week. We need to create one.", pipelineResult: { type: "creation", topic: "GitHub Enterprise 2FA setup", knowledge: "GitHub > Settings > Password and authentication > 2FA > Enable. Use authenticator app (Google Authenticator or Authy). Save backup codes securely.", general: true, sourceMsg: "Lisa Park, Mar 25 10:00 AM" } },
+  { id: "WI-1225", title: "How to set up 2FA for GitHub Enterprise", topic: "IT/Security", status: "Resolved", created: "Mar 25", resolved: "Mar 25", agent: "lisa", kbRef: null, priority: "Medium", resolutionType: "informational", messages: [
+    { from: "submitter", name: "Taylor Reeves", time: "Mar 25, 9:00 AM",  text: "IT is requiring 2FA on GitHub. How do I set it up?" },
+    { from: "ai",        name: "AI Assistant",  time: "Mar 25, 9:00 AM",  text: "I don't have a knowledge base article about GitHub 2FA setup. Let me connect you with support." },
+    { from: "agent",     name: "Lisa Park",     time: "Mar 25, 10:00 AM", text: "Go to github.com, then Settings, then Password and authentication, then Two-factor authentication, then Enable. Choose Authenticator app and scan the QR code with Google Authenticator or Authy. Save your backup codes somewhere secure." },
+  ], agentNotes: "No KB article for GitHub 2FA. Third person this week. We need to create one.", pipelineResult: { type: "no_article", topic: "GitHub Enterprise 2FA setup", knowledge: "GitHub > Settings > Password and authentication > 2FA > Enable. Use authenticator app (Google Authenticator or Authy). Save backup codes securely.", general: true, sourceMsg: "Lisa Park, Mar 25 10:00 AM" } },
 
-  { id: "WI-1228", title: "GitHub 2FA setup help", topic: "IT/Security", status: "Resolved", created: "Mar 27", resolved: "Mar 27", agent: "raj", kbRef: null, priority: "Medium", messages: [
+  { id: "WI-1228", title: "GitHub 2FA setup help", topic: "IT/Security", status: "Resolved", created: "Mar 27", resolved: "Mar 27", agent: "raj", kbRef: null, priority: "Medium", resolutionType: "informational", messages: [
     { from: "submitter", name: "Chris Moore", time: "Mar 27, 11:00 AM", text: "Need help with two-factor auth on GitHub. IT says it's mandatory." },
-    { from: "agent", name: "Raj Patel", time: "Mar 27, 12:30 PM", text: "Go to github.com, Settings, Password and authentication, Two-factor authentication. Click Enable, choose Authenticator app, scan QR code. Don't forget to save recovery codes." },
-  ], agentNotes: null, pipelineResult: { type: "creation", topic: "GitHub Enterprise 2FA setup", knowledge: "GitHub Settings > Password and authentication > 2FA. Authenticator app + save recovery codes.", general: true, sourceMsg: "Raj Patel, Mar 27 12:30 PM" } },
+    { from: "agent",     name: "Raj Patel",   time: "Mar 27, 12:30 PM", text: "Go to github.com, Settings, Password and authentication, Two-factor authentication. Click Enable, choose Authenticator app, scan QR code. Don't forget to save recovery codes." },
+  ], agentNotes: null, pipelineResult: { type: "no_article", topic: "GitHub Enterprise 2FA setup", knowledge: "GitHub Settings > Password and authentication > 2FA. Authenticator app + save recovery codes.", general: true, sourceMsg: "Raj Patel, Mar 27 12:30 PM" } },
 
-  { id: "WI-1215", title: "W-4 update not reflecting on paycheck", topic: "Payroll", status: "Resolved", created: "Mar 23", resolved: "Mar 23", agent: "raj", kbRef: "kb-104", priority: "Low", messages: [
-    { from: "submitter", name: "Robin Lee", time: "Mar 23, 4:00 PM", text: "I updated my W-4 last week but my paycheck still has old withholding." },
-    { from: "ai", name: "AI Assistant", time: "Mar 23, 4:00 PM", text: "W-4 changes take effect on the next full pay cycle. Processing takes 1-2 business days." },
-    { from: "submitter", name: "Robin Lee", time: "Mar 23, 4:02 PM", text: "It's been 8 days though. Can someone check?" },
-    { from: "agent", name: "Raj Patel", time: "Mar 23, 4:45 PM", text: "Your W-4 update is in the system. It takes effect next pay cycle starting April 1. You'll see updated withholding on your April 15 paycheck." },
+  { id: "WI-1215", title: "W-4 update not reflecting on paycheck", topic: "Payroll", status: "Resolved", created: "Mar 23", resolved: "Mar 23", agent: "raj", kbRef: "kb-104", priority: "Low", resolutionType: "informational", messages: [
+    { from: "submitter", name: "Robin Lee",  time: "Mar 23, 4:00 PM", text: "I updated my W-4 last week but my paycheck still has old withholding." },
+    { from: "ai",        name: "AI Assistant", time: "Mar 23, 4:00 PM", text: "W-4 changes take effect on the next full pay cycle. Processing takes 1-2 business days." },
+    { from: "submitter", name: "Robin Lee",  time: "Mar 23, 4:02 PM", text: "It's been 8 days though. Can someone check?" },
+    { from: "agent",     name: "Raj Patel",  time: "Mar 23, 4:45 PM", text: "Your W-4 update is in the system. It takes effect next pay cycle starting April 1. You'll see updated withholding on your April 15 paycheck." },
   ], agentNotes: null, pipelineResult: null },
 
-  { id: "WI-1170", title: "Equipment request for remote employees", topic: "IT/Facilities", status: "Open", created: "Feb 10", resolved: null, agent: null, kbRef: null, priority: "Low", messages: [
+  { id: "WI-1235", title: "When can I change my dental plan?", topic: "Benefits", status: "Resolved", created: "Mar 29", resolved: "Mar 29", agent: "raj", kbRef: "kb-101", priority: "Low", resolutionType: "informational", messages: [
+    { from: "submitter", name: "Morgan Ellis", time: "Mar 29, 10:00 AM", text: "I want to switch to a different dental plan. When is the next enrollment window and what are my options?" },
+    { from: "ai",        name: "AI Assistant", time: "Mar 29, 10:00 AM", text: "I wasn't able to find specific information about dental plan changes in our knowledge base. Let me connect you with someone who can help." },
+    { from: "submitter", name: "Morgan Ellis", time: "Mar 29, 10:02 AM", text: "Strange, I'd expect that to be in the benefits guide." },
+    { from: "agent",     name: "Raj Patel",   time: "Mar 29, 10:30 AM", text: "You're right — it is in the Benefits Enrollment Guide. Dental plan changes happen during open enrollment, November 1–30. Outside that window you can only make changes after a qualifying life event like marriage or having a child." },
+  ], agentNotes: "The Benefits Enrollment Guide covers dental but AI couldn't find it. Keyword mismatch — user said 'dental plan' and AI missed the article. This is a retrieval problem, not a content gap.", pipelineResult: { type: "search_failure", subject: "Dental enrollment window", existingArticle: "kb-101", keywordNote: "User queried 'dental plan changes' — AI failed to surface kb-101 (Annual Benefits Enrollment Guide) which covers dental enrollment. Retrieval problem, not a content gap. If retrieval improves, it should fix both the original query and prevent miscategorization.", sourceMsg: "Raj Patel, Mar 29 10:30 AM" } },
+
+  { id: "WI-1240", title: "W-4 withholding fields are confusing", topic: "Payroll", status: "Resolved", created: "Mar 29", resolved: "Mar 29", agent: "raj", kbRef: "kb-104", priority: "Low", resolutionType: "informational", messages: [
+    { from: "submitter", name: "Sam Lee",    time: "Mar 29, 1:00 PM", text: "I need to update my W-4 but the article has me lost. What's an 'allowance' and how do I fill out lines 3 through 4C?" },
+    { from: "ai",        name: "AI Assistant", time: "Mar 29, 1:00 PM", text: "To update your W-4, log into ADP Workforce Now and navigate to Tax Withholding. Changes take effect on the next full pay cycle and take 1-2 business days to process." },
+    { from: "submitter", name: "Sam Lee",    time: "Mar 29, 1:03 PM", text: "I get how to submit it. I just don't understand what to actually put in the fields." },
+    { from: "agent",     name: "Raj Patel",  time: "Mar 29, 2:15 PM", text: "Happy to simplify! For most people: Line 3 is for dependents — enter $2,000 if you have one child under 17, $4,000 for two. Line 4C is extra withholding per paycheck if you want more taken out. If you're single with one job and no dependents, just leave everything blank — that's the most common setup." },
+  ], agentNotes: "The W-4 article is technically correct but too dry. Users don't understand allowance terminology. Raj's breakdown is much clearer — worth storing as a simplified version.", pipelineResult: { type: "too_complex", subject: "W-4 withholding fields (Lines 3–4C)", rephrasedVersion: "For most employees: Line 3 — enter $2,000 per qualifying child under 17 for dependent credit. Line 4C — optional extra withholding per paycheck. Single with one job and no dependents? Leave all fields blank — this is the most common setup.", sourceMsg: "Raj Patel, Mar 29 2:15 PM" } },
+
+  { id: "WI-1243", title: "Can I get Figma added to my account?", topic: "IT/Tools", status: "Resolved", created: "Mar 28", resolved: "Mar 28", agent: "lisa", kbRef: null, priority: "Low", resolutionType: "action", messages: [
+    { from: "submitter", name: "Jordan Blake", time: "Mar 28, 2:00 PM", text: "My team is doing design reviews in Figma and I need access. How do I get it added to my account?" },
+    { from: "ai",        name: "AI Assistant", time: "Mar 28, 2:00 PM", text: "I don't have a knowledge base article about Figma access provisioning. Let me connect you with IT support." },
+    { from: "agent",     name: "Lisa Park",   time: "Mar 28, 2:45 PM", text: "I've added Figma to your account in the IT admin panel — you should receive an invite email within a few minutes. For future reference, software access requests always require an IT agent. I'll flag this for an article so AI can set expectations upfront next time." },
+  ], agentNotes: "Figma is a provisioning action, not a knowledge question. AI correctly escalated. We need a routing article so AI can tell users what to expect instead of a cold handoff.", pipelineResult: { type: "action_required", subject: "Figma software provisioning", routingDraft: "Figma access requires IT provisioning and cannot be self-served. When you submit this request, I'll create a ticket and an IT agent will add Figma to your account — usually within one business day. You'll receive an invite email once it's done.", sourceMsg: "Lisa Park, Mar 28 2:45 PM" } },
+
+  { id: "WI-1170", title: "Equipment request for remote employees", topic: "IT/Facilities", status: "Open", created: "Feb 10", resolved: null, agent: null, kbRef: null, priority: "Low", resolutionType: null, messages: [
     { from: "submitter", name: "Pat Nguyen", time: "Feb 10, 3:00 PM", text: "I'm fully remote. How do I request a new monitor? The equipment form only works for office employees." },
   ], agentNotes: null, pipelineResult: null },
 
-  { id: "WI-1175", title: "VPN certificate renewal", topic: "IT/Security", status: "Open", created: "Feb 18", resolved: null, agent: null, kbRef: null, priority: "Medium", messages: [
+  { id: "WI-1175", title: "VPN certificate renewal", topic: "IT/Security", status: "Open", created: "Feb 18", resolved: null, agent: null, kbRef: null, priority: "Medium", resolutionType: null, messages: [
     { from: "submitter", name: "Casey Rivera", time: "Feb 18, 9:00 AM", text: "My VPN certificate expires next week. No option to renew in the client. Where do I go?" },
   ], agentNotes: null, pipelineResult: null },
 
-  { id: "WI-1232", title: "Bonus calculation seems incorrect", topic: "Compensation", status: "In Progress", created: "Mar 28", resolved: null, agent: "lisa", kbRef: "kb-103", priority: "High", messages: [
-    { from: "submitter", name: "Jordan Blake", time: "Mar 28, 9:15 AM", text: "My Q1 bonus was significantly less than expected. Can someone review?" },
-    { from: "agent", name: "Lisa Park", time: "Mar 28, 11:30 AM", text: "I'll pull up your comp details and compare against the Q1 bonus formula. Give me a day." },
+  { id: "WI-1232", title: "Bonus calculation seems incorrect", topic: "Compensation", status: "In Progress", created: "Mar 28", resolved: null, agent: "lisa", kbRef: "kb-103", priority: "High", resolutionType: null, messages: [
+    { from: "submitter", name: "Jordan Blake", time: "Mar 28, 9:15 AM",  text: "My Q1 bonus was significantly less than expected. Can someone review?" },
+    { from: "agent",     name: "Lisa Park",   time: "Mar 28, 11:30 AM", text: "I'll pull up your comp details and compare against the Q1 bonus formula. Give me a day." },
   ], agentNotes: null, pipelineResult: null },
 ];
 
@@ -111,46 +132,66 @@ const TICKETS = [
 
 function runPipeline(tickets) {
   const findings = [];
-  const skipped = [];
   tickets.filter(t => t.status === "Resolved").forEach(t => {
-    if (!t.pipelineResult) {
-      if (t.kbRef) skipped.push({ ticket: t.id, reason: t.id === "WI-1220" ? "ECHO: Agent repeated wrong KB info — zero delta" : "No delta — response consistent with article", echo: t.id === "WI-1220" });
-      return;
-    }
+    if (!t.pipelineResult) return;
     findings.push({ ...t.pipelineResult, ticketId: t.id, agent: t.agent, kbRef: t.kbRef });
   });
+
   const groups = {};
   findings.forEach(f => {
-    const key = f.type === "creation" ? `creation:${f.topic}` : `${f.type}:${f.kbRef}:${f.subject || f.topic}`;
+    const noKbTypes = ["no_article", "action_required"];
+    const key = noKbTypes.includes(f.type)
+      ? `${f.type}:${f.subject || f.topic}`
+      : `${f.type}:${f.kbRef || "none"}:${f.subject || f.topic}`;
     if (!groups[key]) groups[key] = { type: f.type, subject: f.subject || f.topic, kbRef: f.kbRef, findings: [] };
     groups[key].findings.push(f);
   });
+
   const outputs = [];
   Object.values(groups).forEach(g => {
-    if (g.type === "wrong") {
+    if (g.type === "outdated") {
       const answers = [...new Set(g.findings.map(f => f.resolutionSays))];
-      if (answers.length > 1) outputs.push({ ...g, outputType: "conflict", answers, priority: 0 });
-      else if (g.findings.length >= 2) outputs.push({ ...g, outputType: "draft", priority: 1 });
-      else outputs.push({ ...g, outputType: "finding", priority: 3 });
-    } else if (g.type === "missing") {
-      outputs.push({ ...g, outputType: g.findings.length >= 2 ? "draft" : "finding", priority: g.findings.length >= 2 ? 1 : 3 });
-    } else if (g.type === "creation") {
-      outputs.push({ ...g, outputType: g.findings.length >= 2 ? "creation_draft" : "creation_finding", priority: g.findings.length >= 2 ? 2 : 3 });
+      if (answers.length > 1)         outputs.push({ ...g, outputType: "conflict",           answers, priority: 0 });
+      else if (g.findings.length >= 2) outputs.push({ ...g, outputType: "correction_draft",          priority: 1 });
+      else                             outputs.push({ ...g, outputType: "correction_finding",         priority: 5 });
+    } else if (g.type === "incomplete") {
+      outputs.push({ ...g, outputType: g.findings.length >= 2 ? "addition_draft" : "addition_finding", priority: g.findings.length >= 2 ? 1 : 5 });
+    } else if (g.type === "no_article") {
+      outputs.push({ ...g, outputType: g.findings.length >= 2 ? "creation_draft" : "creation_finding", priority: g.findings.length >= 2 ? 2 : 5 });
+    } else if (g.type === "too_complex") {
+      outputs.push({ ...g, outputType: "simplification", priority: 3 });
+    } else if (g.type === "action_required") {
+      outputs.push({ ...g, outputType: "routing",        priority: 2 });
+    } else if (g.type === "search_failure") {
+      outputs.push({ ...g, outputType: "retrieval_flag", priority: 4 });
     }
   });
-  return { findings, skipped, outputs: outputs.sort((a,b) => a.priority - b.priority), stale: tickets.filter(t => t.status === "Open") };
+
+  return {
+    findings,
+    outputs: outputs.sort((a, b) => a.priority - b.priority),
+    stale: tickets.filter(t => t.status === "Open"),
+    echoTicket: tickets.find(t => t.id === "WI-1220"),
+  };
 }
 
 // ─── STYLES ─────────────────────────────────────────────────────────
 
 const C = { bg: "#FAFAFA", card: "#fff", bdr: "#E8E9ED", tx: "#1a1d2e", mu: "#8B8FA3", sub: "#4B5064", teal: "#0F6E56", tealBg: "#E1F5EE", red: "#A32D2D", redBg: "#FCEBEB", amber: "#854F0B", amberBg: "#FAEEDA", purple: "#534AB7", purpleBg: "#EEEDFE", blue: "#185FA5", blueBg: "#E6F1FB", green: "#3B6D11", greenBg: "#EAF3DE", gray: "#5F5E5A", grayBg: "#F1EFE8" };
-const B = (c) => ({ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 600, background: c + "15", color: c });
+const B  = (c) => ({ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 600, background: c + "15", color: c });
 const AV = (a) => ({ width: 28, height: 28, borderRadius: "50%", background: a.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", flexShrink: 0 });
+
+// Classification → badge color
+const CLASS_COLOR = { outdated: C.red, incomplete: C.amber, no_article: C.teal, too_complex: C.blue, action_required: C.gray, search_failure: C.purple };
+
+// Output type → label + color
+const OUT_LABEL = { conflict: "CONFLICT ALERT", correction_draft: "CORRECTION DRAFT", addition_draft: "ADDITION DRAFT", creation_draft: "NEW ARTICLE DRAFT", simplification: "SIMPLIFICATION FLAG", routing: "ROUTING ARTICLE PROPOSED", retrieval_flag: "RETRIEVAL FLAG", correction_finding: "FINDING (below threshold)", addition_finding: "FINDING (below threshold)", creation_finding: "CREATION SIGNAL" };
+const OUT_COLOR = { conflict: C.red, correction_draft: C.teal, addition_draft: C.amber, creation_draft: C.purple, simplification: C.blue, routing: C.gray, retrieval_flag: C.purple, correction_finding: C.blue, addition_finding: C.blue, creation_finding: C.purple };
 
 function Msg({ m }) {
   const isAgent = m.from === "agent"; const isAI = m.from === "ai";
   const bg = isAI ? C.purpleBg : isAgent ? C.tealBg : C.grayBg;
-  const nc = isAI ? C.purple : isAgent ? C.teal : C.gray;
+  const nc = isAI ? C.purple   : isAgent ? C.teal   : C.gray;
   return (
     <div style={{ padding: 10, marginTop: 6, borderRadius: 8, background: bg }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
@@ -165,40 +206,49 @@ function Msg({ m }) {
 
 function Ticket({ t }) {
   const [open, setOpen] = useState(false);
-  const ag = AGENTS[t.agent]; const art = KB_ARTICLES.find(a => a.id === t.kbRef);
+  const ag  = AGENTS[t.agent];
+  const art = KB_ARTICLES.find(a => a.id === t.kbRef);
   const isEcho = t.id === "WI-1220";
+  const classColor = t.pipelineResult ? (CLASS_COLOR[t.pipelineResult.type] || C.gray) : null;
+
   return (
     <div style={{ border: `1px solid ${isEcho ? C.amber + "60" : C.bdr}`, borderRadius: 8, marginBottom: 8, background: C.card }}>
       <div onClick={() => setOpen(!open)} style={{ padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: C.mu, minWidth: 56 }}>{t.id}</span>
-        <span style={{ fontSize: 13, color: C.tx, flex: 1, fontWeight: 500, minWidth: 200 }}>{t.title}</span>
+        <span style={{ fontSize: 13, color: C.tx, flex: 1, fontWeight: 500, minWidth: 180 }}>{t.title}</span>
         {ag && <div style={AV(ag)}>{ag.initials}</div>}
         <span style={B(t.status === "Resolved" ? C.green : t.status === "Open" ? C.red : C.amber)}>{t.status}</span>
+        {t.resolutionType && <span style={B(t.resolutionType === "action" ? C.purple : C.teal)}>{t.resolutionType}</span>}
         {t.kbRef ? <span style={B(C.blue)}>{t.kbRef}</span> : t.status === "Resolved" ? <span style={B(C.purple)}>No KB</span> : null}
-        {t.pipelineResult ? <span style={B(t.pipelineResult.type === "wrong" ? C.red : t.pipelineResult.type === "missing" ? C.amber : C.teal)}>{t.pipelineResult.type}</span> : t.status === "Resolved" && t.kbRef ? <span style={B(isEcho ? C.amber : C.gray)}>{isEcho ? "echo" : "no delta"}</span> : null}
+        {t.pipelineResult
+          ? <span style={B(classColor)}>{t.pipelineResult.type.replace("_", " ")}</span>
+          : t.status === "Resolved" && t.kbRef
+            ? <span style={B(isEcho ? C.amber : C.gray)}>{isEcho ? "echo" : "no delta"}</span>
+            : null}
         <span style={{ fontSize: 14, color: C.mu, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>&#x25BE;</span>
       </div>
       {open && (
         <div style={{ padding: "0 14px 14px", borderTop: `1px solid ${C.bdr}` }}>
           <div style={{ display: "flex", gap: 12, padding: "8px 0", fontSize: 11, color: C.mu, flexWrap: "wrap" }}>
             <span>Topic: {t.topic}</span><span>Created: {t.created}</span>
-            {ag && <span>Agent: {ag.name}</span>}{art && <span style={{ color: C.blue }}>KB: {art.title}</span>}
+            {ag  && <span>Agent: {ag.name}</span>}
+            {art && <span style={{ color: C.blue }}>KB: {art.title}</span>}
           </div>
           {t.messages.map((m, i) => <Msg key={i} m={m} />)}
           {t.agentNotes && (
-            <div style={{ padding: 10, marginTop: 6, borderLeft: `3px solid ${C.amber}`, borderRadius: 0, background: C.amberBg }}>
+            <div style={{ padding: 10, marginTop: 6, borderLeft: `3px solid ${C.amber}`, background: C.amberBg }}>
               <div style={{ fontSize: 10, fontWeight: 600, color: C.amber, marginBottom: 4 }}>AGENT INTERNAL NOTE</div>
               <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.5 }}>{t.agentNotes}</div>
             </div>
           )}
           {isEcho && (
-            <div style={{ padding: 10, marginTop: 6, background: C.redBg, borderLeft: `3px solid ${C.red}`, borderRadius: 0 }}>
+            <div style={{ padding: 10, marginTop: 6, background: C.redBg, borderLeft: `3px solid ${C.red}` }}>
               <div style={{ fontSize: 10, fontWeight: 600, color: C.red, marginBottom: 4 }}>ECHO PROBLEM</div>
               <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.5 }}>Raj repeated the wrong $3,650 from the KB. The pipeline detects zero delta. This error is invisible. Only catchable via agent feedback channel or because other tickets (WI-1192, WI-1218) from Lisa independently contradicted the article.</div>
             </div>
           )}
           {!t.pipelineResult && t.status === "Resolved" && t.kbRef && !isEcho && (
-            <div style={{ padding: 10, marginTop: 6, background: C.greenBg, borderLeft: `3px solid ${C.green}`, borderRadius: 0 }}>
+            <div style={{ padding: 10, marginTop: 6, background: C.greenBg, borderLeft: `3px solid ${C.green}` }}>
               <div style={{ fontSize: 10, fontWeight: 600, color: C.green }}>NO DELTA: article is correct, agent response consistent</div>
             </div>
           )}
@@ -208,16 +258,27 @@ function Ticket({ t }) {
   );
 }
 
+function ActionButtons({ primary, primaryLabel }) {
+  return (
+    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+      <button style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: C.tx, color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{primaryLabel}</button>
+      <button style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${C.bdr}`, background: C.card, color: C.sub, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Edit draft</button>
+      <button style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${C.bdr}`, background: C.card, color: C.red,  fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Dismiss</button>
+    </div>
+  );
+}
+
 function Output({ o }) {
   const [open, setOpen] = useState(false);
   const art = KB_ARTICLES.find(a => a.id === o.kbRef);
-  const tc = { conflict: C.red, draft: C.teal, finding: C.blue, creation_draft: C.purple, creation_finding: C.purple };
-  const tl = { conflict: "CONFLICT ALERT", draft: "DRAFT READY", finding: "FINDING (below threshold)", creation_draft: "NEW ARTICLE DRAFT", creation_finding: "CREATION SIGNAL" };
-  const c = tc[o.outputType] || C.gray;
+  const c   = OUT_COLOR[o.outputType] || C.gray;
+  const lbl = OUT_LABEL[o.outputType] || o.outputType;
+  const isFlag = o.outputType === "retrieval_flag" || o.outputType === "simplification";
+
   return (
     <div style={{ border: `1px solid ${c}30`, borderLeft: `3px solid ${c}`, marginBottom: 8, background: C.card }}>
       <div onClick={() => setOpen(!open)} style={{ padding: "12px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={B(c)}>{tl[o.outputType]}</span>
+        <span style={B(c)}>{lbl}</span>
         <span style={{ fontSize: 13, fontWeight: 600, color: C.tx, flex: 1, minWidth: 150 }}>{o.subject}</span>
         <span style={{ fontSize: 12, color: C.mu }}>{o.findings.length} ticket{o.findings.length !== 1 ? "s" : ""}</span>
         {art && <span style={{ fontSize: 11, color: C.blue }}>{art.title}</span>}
@@ -225,39 +286,106 @@ function Output({ o }) {
       </div>
       {open && (
         <div style={{ padding: "0 14px 14px", borderTop: `1px solid ${C.bdr}` }}>
+
+          {/* CONFLICT */}
           {o.outputType === "conflict" && (
             <div style={{ padding: 12, background: C.redBg, borderRadius: 8, marginTop: 8 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: C.red, marginBottom: 6 }}>Agents gave different answers:</div>
               {o.findings.map((f, i) => <div key={i} style={{ fontSize: 12, color: C.sub, marginBottom: 4 }}><strong>{AGENTS[f.agent]?.name}</strong> ({f.ticketId}): {f.resolutionSays}</div>)}
-              <div style={{ fontSize: 12, color: C.red, marginTop: 8, fontWeight: 600 }}>Cannot generate draft. Human verification needed.</div>
+              <div style={{ fontSize: 12, color: C.red, marginTop: 8, fontWeight: 600 }}>Cannot generate draft. Human verification needed before any update.</div>
             </div>
           )}
-          {o.outputType === "draft" && o.type === "wrong" && (
+
+          {/* CORRECTION DRAFT (outdated article) */}
+          {o.outputType === "correction_draft" && (
             <div style={{ display: "flex", gap: 10, marginTop: 8, marginBottom: 10 }}>
-              <div style={{ flex: 1, padding: 10, borderRadius: 8, background: C.redBg }}><div style={{ fontSize: 10, fontWeight: 600, color: C.red, marginBottom: 4 }}>CURRENT</div><div style={{ fontSize: 13, color: C.sub }}>{o.findings[0]?.articleSays}</div></div>
+              <div style={{ flex: 1, padding: 10, borderRadius: 8, background: C.redBg }}><div style={{ fontSize: 10, fontWeight: 600, color: C.red, marginBottom: 4 }}>CURRENT (outdated)</div><div style={{ fontSize: 13, color: C.sub }}>{o.findings[0]?.articleSays}</div></div>
               <div style={{ flex: 1, padding: 10, borderRadius: 8, background: C.greenBg }}><div style={{ fontSize: 10, fontWeight: 600, color: C.green, marginBottom: 4 }}>PROPOSED</div><div style={{ fontSize: 13, color: C.sub }}>{o.findings[0]?.resolutionSays}</div></div>
             </div>
           )}
-          {o.outputType === "draft" && o.type === "missing" && (
-            <div style={{ padding: 10, borderRadius: 8, background: C.amberBg, margin: "8px 0 10px" }}><div style={{ fontSize: 10, fontWeight: 600, color: C.amber, marginBottom: 4 }}>ADD TO ARTICLE</div><div style={{ fontSize: 13, color: C.sub }}>{o.findings[0]?.agentProvided}</div></div>
+
+          {/* ADDITION DRAFT (incomplete article) */}
+          {o.outputType === "addition_draft" && (
+            <div style={{ padding: 10, borderRadius: 8, background: C.amberBg, margin: "8px 0 10px" }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: C.amber, marginBottom: 4 }}>ADD TO ARTICLE</div>
+              <div style={{ fontSize: 13, color: C.sub }}>{o.findings[0]?.agentProvided}</div>
+            </div>
           )}
+
+          {/* NEW ARTICLE DRAFT (no article exists) */}
           {o.outputType === "creation_draft" && (
-            <div style={{ padding: 10, borderRadius: 8, background: C.purpleBg, margin: "8px 0 10px" }}><div style={{ fontSize: 10, fontWeight: 600, color: C.purple, marginBottom: 4 }}>PROPOSED NEW ARTICLE</div><div style={{ fontSize: 13, fontWeight: 600, color: C.tx, marginBottom: 4 }}>How to set up 2FA for GitHub Enterprise</div><div style={{ fontSize: 12, color: C.sub, lineHeight: 1.6 }}>{o.findings[0]?.knowledge}</div></div>
+            <div style={{ padding: 10, borderRadius: 8, background: C.purpleBg, margin: "8px 0 10px" }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: C.purple, marginBottom: 4 }}>PROPOSED NEW ARTICLE</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.tx, marginBottom: 4 }}>{o.findings[0]?.topic}</div>
+              <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.6 }}>{o.findings[0]?.knowledge}</div>
+            </div>
           )}
+
+          {/* SIMPLIFICATION FLAG (too complex) */}
+          {o.outputType === "simplification" && (
+            <div style={{ marginTop: 8, marginBottom: 10 }}>
+              <div style={{ padding: 10, borderRadius: 8, background: C.blueBg, marginBottom: 8 }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: C.blue, marginBottom: 4 }}>AGENT'S REPHRASED VERSION</div>
+                <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.6 }}>{o.findings[0]?.rephrasedVersion}</div>
+              </div>
+              <div style={{ fontSize: 12, color: C.mu, lineHeight: 1.6 }}>The article content is factually correct. The user couldn't follow it — agent rephrased it successfully. Storing the simpler version may improve future match rates and deflection. Gray area: could also mean the user wanted to be spoon-fed.</div>
+            </div>
+          )}
+
+          {/* ROUTING ARTICLE (action required) */}
+          {o.outputType === "routing" && (
+            <div style={{ marginTop: 8, marginBottom: 10 }}>
+              <div style={{ padding: 10, borderRadius: 8, background: C.grayBg, marginBottom: 8 }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: C.gray, marginBottom: 4 }}>PROPOSED ROUTING ARTICLE</div>
+                <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.6 }}>{o.findings[0]?.routingDraft}</div>
+              </div>
+              <div style={{ fontSize: 12, color: C.mu, lineHeight: 1.6 }}>This resolution required a human action, not knowledge. The useful article isn't a how-to — it's a routing article that sets expectations: "this needs a human agent, here's what to expect."</div>
+            </div>
+          )}
+
+          {/* RETRIEVAL FLAG (search failure) */}
+          {o.outputType === "retrieval_flag" && (
+            <div style={{ padding: 10, borderRadius: 8, background: C.purpleBg, margin: "8px 0 10px" }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: C.purple, marginBottom: 4 }}>RETRIEVAL PROBLEM — NOT A CONTENT GAP</div>
+              <div style={{ fontSize: 12, color: C.sub, marginBottom: 6, lineHeight: 1.6 }}>{o.findings[0]?.keywordNote}</div>
+              <div style={{ fontSize: 11, color: C.purple }}>Existing article: {o.findings[0]?.existingArticle}. No KB update needed. Logged for retrieval/RAG review.</div>
+            </div>
+          )}
+
+          {/* BELOW-THRESHOLD FINDINGS */}
+          {(o.outputType === "correction_finding" || o.outputType === "addition_finding" || o.outputType === "creation_finding") && (
+            <div style={{ padding: 10, borderRadius: 8, background: C.blueBg, margin: "8px 0 10px" }}>
+              <div style={{ fontSize: 12, color: C.blue }}>Only {o.findings.length} ticket — below the 2-ticket threshold to generate a draft. Accumulating. Will escalate when a second ticket corroborates.</div>
+            </div>
+          )}
+
+          {/* EVIDENCE */}
           <div style={{ fontSize: 11, fontWeight: 600, color: C.mu, marginBottom: 6, marginTop: 8 }}>SOURCE EVIDENCE</div>
           {o.findings.map((f, i) => (
             <div key={i} style={{ padding: 8, background: C.grayBg, borderRadius: 6, marginBottom: 4 }}>
               <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 2 }}>
-                <span style={B(C.blue)}>{f.ticketId}</span><span style={{ fontSize: 12, fontWeight: 600, color: C.tx }}>{AGENTS[f.agent]?.name}</span><span style={B(f.general ? C.green : C.gray)}>{f.general ? "General" : "Specific"}</span>
+                <span style={B(C.blue)}>{f.ticketId}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.tx }}>{AGENTS[f.agent]?.name}</span>
+                <span style={B(f.general ? C.green : C.gray)}>{f.general ? "General" : "Specific"}</span>
               </div>
               <div style={{ fontSize: 12, color: C.mu }}>{f.sourceMsg}</div>
             </div>
           ))}
-          {(o.outputType === "draft" || o.outputType === "creation_draft") && (
+
+          {/* ACTION BUTTONS */}
+          {o.outputType === "correction_draft"  && <ActionButtons primaryLabel="Approve & publish" />}
+          {o.outputType === "addition_draft"    && <ActionButtons primaryLabel="Approve & publish" />}
+          {o.outputType === "creation_draft"    && <ActionButtons primaryLabel="Create article" />}
+          {o.outputType === "routing"           && <ActionButtons primaryLabel="Create routing article" />}
+          {o.outputType === "simplification"    && (
             <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-              <button style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: C.tx, color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{o.outputType === "creation_draft" ? "Create article" : "Approve & publish"}</button>
-              <button style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${C.bdr}`, background: C.card, color: C.sub, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Edit draft</button>
+              <button style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: C.tx, color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Store rephrased version</button>
               <button style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${C.bdr}`, background: C.card, color: C.red, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Dismiss</button>
+            </div>
+          )}
+          {o.outputType === "retrieval_flag" && (
+            <div style={{ marginTop: 10 }}>
+              <button style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${C.bdr}`, background: C.card, color: C.gray, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Log for retrieval review</button>
             </div>
           )}
         </div>
@@ -269,24 +397,33 @@ function Output({ o }) {
 // ─── APP ─────────────────────────────────────────────────────────────
 
 function App() {
-  const [tab, setTab] = useState("pipeline");
+  const [tab,    setTab]    = useState("pipeline");
   const [hasRun, setHasRun] = useState(false);
   const [running, setRunning] = useState(false);
-  const [step, setStep] = useState(0);
+  const [step,   setStep]   = useState(0);
   const [results, setResults] = useState(null);
 
-  const run = () => { setRunning(true); setStep(1); const iv = setInterval(() => { setStep(s => { if (s >= 5) { clearInterval(iv); setRunning(false); setHasRun(true); setResults(runPipeline(TICKETS)); return 5; } return s + 1; }); }, 700); };
+  const run = () => {
+    setRunning(true); setStep(1);
+    const iv = setInterval(() => {
+      setStep(s => {
+        if (s >= 5) { clearInterval(iv); setRunning(false); setHasRun(true); setResults(runPipeline(TICKETS)); return 5; }
+        return s + 1;
+      });
+    }, 700);
+  };
 
-  const resolved = TICKETS.filter(t => t.status === "Resolved").length;
+  const resolved  = TICKETS.filter(t => t.status === "Resolved").length;
   const withDelta = TICKETS.filter(t => t.pipelineResult).length;
 
   return (
     <div style={{ fontFamily: "'Nunito Sans', system-ui, sans-serif", background: C.bg, minHeight: "100vh", padding: "20px 24px" }}>
       <div style={{ maxWidth: 960, margin: "0 auto" }}>
+
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: C.mu, textTransform: "uppercase", letterSpacing: "0.04em" }}>Resolution drafts prototype</div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: C.tx, margin: "4px 0" }}>Nightly batch pipeline simulation</h1>
-          <div style={{ fontSize: 13, color: C.mu }}>{TICKETS.length} tickets, {resolved} resolved, 2 agents, {KB_ARTICLES.length} KB articles</div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: C.tx, margin: "4px 0" }}>Retroactive KB analysis</h1>
+          <div style={{ fontSize: 13, color: C.mu }}>{TICKETS.length} tickets · {resolved} resolved · 2 agents · {KB_ARTICLES.length} KB articles · 6 failure classifications</div>
         </div>
 
         <div style={{ display: "flex", gap: 4, marginBottom: 16, borderBottom: `1px solid ${C.bdr}`, paddingBottom: 4 }}>
@@ -299,19 +436,20 @@ function App() {
           <div>
             {!hasRun && !running && (
               <div style={{ textAlign: "center", padding: 40 }}>
-                <div style={{ fontSize: 15, color: C.sub, marginBottom: 16 }}>Run the nightly batch to process {resolved} resolved tickets through the pipeline.</div>
-                <button onClick={run} style={{ padding: "12px 32px", borderRadius: 8, border: "none", background: C.tx, color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Run nightly batch</button>
+                <div style={{ fontSize: 15, color: C.sub, marginBottom: 16 }}>Analyze {resolved} resolved tickets to surface KB gaps, outdated content, and missing articles.</div>
+                <button onClick={run} style={{ padding: "12px 32px", borderRadius: 8, border: "none", background: C.tx, color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Run analysis</button>
               </div>
             )}
+
             {(running || hasRun) && (
               <div style={{ marginBottom: 20 }}>
                 {[
-                  ["Collecting resolved tickets", `${resolved} resolved by human agents`, C.gray],
-                  ["Retrieving linked KB articles", `${TICKETS.filter(t=>t.status==="Resolved"&&t.kbRef).length} with KB link, ${TICKETS.filter(t=>t.status==="Resolved"&&!t.kbRef).length} creation path`, C.purple],
-                  ["Running LLM comparison", `${withDelta} deltas found, ${resolved - withDelta} no delta (1 is echo problem)`, C.teal],
-                  ["Accumulating findings + conflict check", "Grouping by subject, checking agent agreement", C.amber],
-                  ["Generating outputs", "Drafts, conflicts, creation proposals, stale alerts", C.green],
-                ].map(([l,d,c], i) => (
+                  ["Collecting resolved tickets",            `${resolved} resolved by human agents`, C.gray],
+                  ["Retrieving KB articles + resolution type", `${TICKETS.filter(t=>t.status==="Resolved"&&t.kbRef).length} with KB link · ${TICKETS.filter(t=>t.status==="Resolved"&&!t.kbRef&&t.pipelineResult).length} creation/action path`, C.purple],
+                  ["Running LLM comparison + classification", `${withDelta} with findings · ${resolved - withDelta} no delta (1 is echo problem)`, C.teal],
+                  ["Grouping findings + conflict detection",  "Checking agent agreement across tickets", C.amber],
+                  ["Generating outputs",                      "Correction drafts, addition drafts, new articles, routing proposals, flags", C.green],
+                ].map(([l, d, c], i) => (
                   <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 10, opacity: step > i ? 1 : step === i ? 0.6 : 0.25, transition: "opacity 0.4s" }}>
                     <div style={{ width: 22, height: 22, borderRadius: "50%", background: step>i?c+"20":C.grayBg, border: `1.5px solid ${step>i?c:C.bdr}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: step>i?c:C.mu, flexShrink: 0 }}>{step>i?"✓":i+1}</div>
                     <div><div style={{ fontSize: 14, fontWeight: 600, color: step>i?C.tx:C.mu }}>{l}</div><div style={{ fontSize: 12, color: C.mu }}>{d}</div></div>
@@ -319,28 +457,35 @@ function App() {
                 ))}
               </div>
             )}
+
             {hasRun && results && (
               <div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 16 }}>
+                {/* Summary stats — 6 classifications */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, marginBottom: 16 }}>
                   {[
-                    [results.outputs.filter(o=>o.outputType==="draft").length, "Correction drafts", C.teal],
-                    [results.outputs.filter(o=>o.outputType==="conflict").length, "Conflict alerts", C.red],
-                    [results.outputs.filter(o=>o.outputType==="creation_draft").length, "New article drafts", C.purple],
-                    [results.outputs.filter(o=>o.outputType==="finding"||o.outputType==="creation_finding").length, "Below threshold", C.blue],
-                    [results.stale.length, "Stale alerts", C.amber],
-                  ].map(([n,l,c],i) => (
-                    <div key={i} style={{ padding: 14, background: C.card, border: `1px solid ${C.bdr}`, borderRadius: 8, textAlign: "center" }}>
-                      <div style={{ fontSize: 26, fontWeight: 700, color: n>0?c:C.mu }}>{n}</div>
-                      <div style={{ fontSize: 11, color: C.mu }}>{l}</div>
+                    [results.outputs.filter(o=>o.outputType==="correction_draft").length,  "Correction drafts",  C.teal],
+                    [results.outputs.filter(o=>o.outputType==="addition_draft").length,    "Addition drafts",    C.amber],
+                    [results.outputs.filter(o=>o.outputType==="creation_draft").length,    "New article drafts", C.purple],
+                    [results.outputs.filter(o=>o.outputType==="conflict").length,           "Conflict alerts",    C.red],
+                    [results.outputs.filter(o=>o.outputType==="routing").length,            "Routing proposals",  C.gray],
+                    [results.outputs.filter(o=>o.outputType==="simplification"||o.outputType==="retrieval_flag").length, "Flags", C.blue],
+                  ].map(([n, l, c], i) => (
+                    <div key={i} style={{ padding: "12px 8px", background: C.card, border: `1px solid ${C.bdr}`, borderRadius: 8, textAlign: "center" }}>
+                      <div style={{ fontSize: 24, fontWeight: 700, color: n > 0 ? c : C.mu }}>{n}</div>
+                      <div style={{ fontSize: 10, color: C.mu, lineHeight: 1.3, marginTop: 2 }}>{l}</div>
                     </div>
                   ))}
                 </div>
+
+                {/* Echo blind spot callout */}
                 <div style={{ padding: "10px 14px", background: C.amberBg, borderLeft: `3px solid ${C.amber}`, marginBottom: 14 }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: C.amber, marginBottom: 2 }}>BLIND SPOT: ECHO PROBLEM</div>
-                  <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.6 }}>WI-1220: Raj Patel repeated wrong $3,650 from KB. Pipeline saw zero delta. Error invisible without agent feedback channel.</div>
+                  <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.6 }}>WI-1220: Raj Patel repeated wrong $3,650 from KB. Pipeline detected zero delta — this error is invisible. Only catchable because Lisa independently corrected it in WI-1192 and WI-1218, triggering the conflict detection path.</div>
                 </div>
+
                 <div style={{ fontSize: 14, fontWeight: 700, color: C.tx, marginBottom: 8 }}>Pipeline outputs</div>
-                {results.outputs.map((o,i) => <Output key={i} o={o} />)}
+                {results.outputs.map((o, i) => <Output key={i} o={o} />)}
+
                 {results.stale.length > 0 && (
                   <div style={{ marginTop: 16 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: C.tx, marginBottom: 8 }}>Stale ticket alerts</div>
@@ -359,7 +504,7 @@ function App() {
 
         {tab === "tickets" && (
           <div>
-            <div style={{ fontSize: 13, color: C.mu, marginBottom: 12 }}>Click any ticket to see the full conversation, AI attempt, agent resolution, and pipeline result.</div>
+            <div style={{ fontSize: 13, color: C.mu, marginBottom: 12 }}>Click any ticket to see the full conversation, AI attempt, agent resolution, and pipeline classification.</div>
             {TICKETS.map(t => <Ticket key={t.id} t={t} />)}
           </div>
         )}
@@ -372,14 +517,14 @@ function App() {
                   <span style={B(C.blue)}>{a.id}</span>
                   <span style={{ fontSize: 14, fontWeight: 600, color: C.tx, flex: 1 }}>{a.title}</span>
                   <span style={{ fontSize: 12, color: C.mu }}>{a.category}</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: a.deflection<40?C.red:a.deflection<70?C.amber:C.green }}>{a.deflection}%</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: a.deflection < 40 ? C.red : a.deflection < 70 ? C.amber : C.green }}>{a.deflection}%</span>
                 </div>
                 <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.6, padding: 12, background: C.grayBg, borderRadius: 6, marginBottom: 8 }}>{a.content}</div>
                 <div style={{ display: "flex", gap: 16, fontSize: 12, color: C.mu }}><span>Updated: {a.updated}</span><span>Views: {a.views}/mo</span></div>
                 {(a.issues.wrong || a.issues.missing) && (
                   <div style={{ marginTop: 8, padding: 10, background: C.redBg, borderRadius: 6 }}>
                     <div style={{ fontSize: 10, fontWeight: 600, color: C.red, marginBottom: 4 }}>KNOWN ISSUES</div>
-                    {a.issues.wrong && <div style={{ fontSize: 12, color: C.sub }}>Wrong: {a.issues.wrong}</div>}
+                    {a.issues.wrong   && <div style={{ fontSize: 12, color: C.sub }}>Wrong: {a.issues.wrong}</div>}
                     {a.issues.missing && <div style={{ fontSize: 12, color: C.sub }}>Missing: {a.issues.missing}</div>}
                   </div>
                 )}
@@ -391,8 +536,8 @@ function App() {
         {tab === "agents" && (
           <div style={{ display: "flex", gap: 16 }}>
             {Object.values(AGENTS).map(a => {
-              const at = TICKETS.filter(t => t.agent === a.id);
-              const wf = at.filter(t => t.pipelineResult);
+              const at   = TICKETS.filter(t => t.agent === a.id);
+              const wf   = at.filter(t => t.pipelineResult);
               const echo = at.filter(t => t.status === "Resolved" && !t.pipelineResult && t.kbRef);
               return (
                 <div key={a.id} style={{ flex: 1, border: `1px solid ${C.bdr}`, borderRadius: 8, padding: 20, background: C.card }}>
@@ -404,7 +549,7 @@ function App() {
                   <div style={{ fontSize: 12, color: C.mu, lineHeight: 1.8 }}>
                     <div><strong style={{ color: C.tx }}>{at.length}</strong> tickets handled</div>
                     <div><strong style={{ color: C.teal }}>{wf.length}</strong> produced findings</div>
-                    <div><strong style={{ color: echo.length>0?C.amber:C.green }}>{echo.length}</strong> no delta {echo.length>0?"(includes echo risk)":"(correct articles)"}</div>
+                    <div><strong style={{ color: echo.length > 0 ? C.amber : C.green }}>{echo.length}</strong> no delta {echo.length > 0 ? "(includes echo risk)" : "(correct articles)"}</div>
                   </div>
                   {echo.length > 0 && (
                     <div style={{ marginTop: 8, padding: 8, background: C.amberBg, borderRadius: 6, fontSize: 12, color: C.amber }}>
@@ -416,6 +561,7 @@ function App() {
             })}
           </div>
         )}
+
       </div>
     </div>
   );
