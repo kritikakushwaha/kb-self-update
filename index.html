@@ -112,7 +112,7 @@ td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; 
   <tr><td><strong>Outdated article</strong></td><td>Article has wrong info. Agent corrected it.</td><td>Draft a correction with evidence.</td></tr>
   <tr><td><strong>Incomplete article</strong></td><td>Article exists but doesn't cover this topic.</td><td>Draft an addition to the article.</td></tr>
   <tr><td><strong>No article exists</strong></td><td>Agent answered from scratch. Nothing in KB.</td><td>Draft a new article from the resolution.</td></tr>
-  <tr><td><strong>Too complex</strong></td><td>Right info exists but user couldn't follow it.</td><td>Flag for simplification — content design, not factual fix.</td></tr>
+  <tr><td><strong>Too complex</strong></td><td>Article exists and was found, but agent had to rephrase it for the user.</td><td>Flag for simplification. Opportunity: store the rephrased version to improve future match rates. Gray area — could also mean the user wanted to be spoon-fed.</td></tr>
   <tr><td><strong>Action required</strong></td><td>Agent performed an action (reset, provisioned, approved). Not a knowledge problem.</td><td>Propose a routing article: "This needs a human — AI creates ticket + sets expectations."</td></tr>
   <tr><td><strong>Search failure</strong></td><td>Article exists but AI didn't find it.</td><td>Retrieval/RAG problem, not content. Log separately.</td></tr>
 </table>
@@ -139,7 +139,8 @@ td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; 
   </div>
   <div class="card" style="border-left: 3px solid #534AB7; border-radius: 0;">
     <strong style="color: #534AB7;">Customer B: building from scratch</strong>
-    <p style="margin-top: 6px; font-size: 14px;">Problem is they have no articles. "Your agents answered 8 GitHub 2FA questions this month. Here's a draft article."</p>
+    <p style="margin-top: 6px; font-size: 14px;">Problem is they have no articles. Agents resolve tickets manually → Category B signals trigger article creation → KB grows organically. "Your agents answered 8 GitHub 2FA questions this month. Here's a draft article."</p>
+    <p style="font-size: 13px; color: #8B8FA3; margin: 0;">Allowlist opportunity: trusted external sources (e.g. IRS.gov) could be default-whitelisted to bootstrap KB content before any agent tickets exist.</p>
   </div>
 </div>
 
@@ -150,13 +151,16 @@ td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; 
 <div class="row">
   <div class="card" style="border-left: 3px solid #854F0B; border-radius: 0;">
     <strong style="color: #854F0B;">Immediate: on that ticket</strong>
-    <p style="margin-top: 6px; font-size: 14px;">Right after resolution: "You referenced info not in any KB — want to save this as an article?" Catches the agent while context is fresh.</p>
+    <p style="margin-top: 6px; font-size: 14px;">Right after resolution: "You referenced info not in any KB — want to save this as an article?" Catches the agent while context is fresh. Higher-value unlock for companies with sparse or no KB — lets agents build it organically.</p>
+    <p style="font-size: 13px; color: #8B8FA3; margin: 0;">Risk: uncontrolled KB population without quality control. Mitigate with an admin toggle to disable agent-initiated creation for larger orgs.</p>
   </div>
   <div class="card" style="border-left: 3px solid #185FA5; border-radius: 0;">
     <strong style="color: #185FA5;">Retroactive: on the KB page</strong>
     <p style="margin-top: 6px; font-size: 14px;">Analysis across resolved tickets. "This article was surfaced 50 times, escalated 38. Here are the conversations." Patterns become visible.</p>
   </div>
 </div>
+
+<div class="callout blue"><strong>EA scope: suggestions only.</strong> Auto-updating KB is not in scope for early access. The system drafts; agents approve and add manually. Whether the suggestion was actually adopted may not be verifiable — infra for that closed loop isn't there yet.</div>
 
 <h3>Layered approach to building</h3>
 <p>This doesn't need to ship as one monolithic feature. Each layer adds value independently:</p>
@@ -169,6 +173,21 @@ td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; 
   <tr><td><strong>+ Draft generation</strong></td><td>System writes the fix. Correction drafts, creation drafts, routing articles.</td><td>Yes</td></tr>
   <tr><td><strong>+ Outcome tracking</strong></td><td>Deflection rate before/after. Draft acceptance rate. Closed-loop.</td><td>No</td></tr>
 </table>
+
+<h3>Public KB vs. playbooks (private KB)</h3>
+
+<div class="row">
+  <div class="card" style="border-left: 3px solid #0F6E56; border-radius: 0;">
+    <strong style="color: #0F6E56;">Public KB</strong>
+    <p style="margin-top: 6px; font-size: 14px;">Queried when answering submitter questions. Same data model as playbooks, different access rules. Doesn't need a hard queue association in end state — organized in directories, globally accessible. Queue association is how it's modeled today; fine for now, not the target state.</p>
+  </div>
+  <div class="card" style="border-left: 3px solid #534AB7; border-radius: 0;">
+    <strong style="color: #534AB7;">Playbooks (private KB)</strong>
+    <p style="margin-top: 6px; font-size: 14px;">Agent-facing only. Not surfaced when answering submitter questions. Action-based steps (e.g. provisioning software on behalf of a user) belong here, not in the public KB. May retain queue/team association in end state.</p>
+  </div>
+</div>
+
+<div class="callout red"><strong>Private comments must not feed public KB learning.</strong> Leakage risk is real. Private comments could potentially feed playbook improvement — but that needs more thought before implementing.</div>
 
 </section>
 
@@ -207,7 +226,7 @@ td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; 
   <div class="card" style="border-left: 3px solid #A32D2D; border-radius: 0;">
     <strong style="color: #A32D2D;">Echo problem</strong>
     <p style="margin-top: 6px; font-size: 14px;">Agent trusts wrong article, repeats wrong answer. Zero delta. System thinks everything is fine. Especially dangerous for health benefits, compliance, financial data.</p>
-    <p style="font-size: 13px; color: #8B8FA3; margin: 0;">Mitigation: agent feedback channel, time-based decay, external source monitoring.</p>
+    <p style="font-size: 13px; color: #8B8FA3; margin: 0;">Mitigation: agent feedback channel, time-based decay, external source monitoring. Partial mitigation from within the pipeline: if the same question gets <em>conflicting</em> agent responses across tickets, the system can flag the conflict even without an explicit correction.</p>
   </div>
   <div class="card" style="border-left: 3px solid #A32D2D; border-radius: 0;">
     <strong style="color: #A32D2D;">Silent deflection</strong>
@@ -219,6 +238,12 @@ td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; 
 <div class="card" style="border-left: 3px solid #854F0B; border-radius: 0;">
   <strong style="color: #854F0B;">Incident vs KB signal</strong>
   <p style="margin-top: 6px; font-size: 14px;">Multiple tickets about the same topic could mean a bad KB article OR a system outage. Five tickets about HSA limits over three weeks = KB pattern. Five tickets about Slack access in two hours = incident. The system needs to distinguish informational queries from failure reports — velocity, resolution type, and topic language are the candidate differentiators.</p>
+  <p style="font-size: 13px; color: #8B8FA3; margin: 0;">Candidate solution: configurable threshold (X tickets of the same type within Y hours = flag as possible incident, not KB gap). Sentiment analysis (urgency/panic signals in ticket language) noted as a future direction to improve accuracy.</p>
+</div>
+
+<div class="card" style="border-left: 3px solid #A32D2D; border-radius: 0;">
+  <strong style="color: #A32D2D;">Liability: topic blocklists</strong>
+  <p style="margin-top: 6px; font-size: 14px;">Tax, finance, and potentially health/HIPAA topics may need to be off-limits for AI responses entirely — not just flagged for review. The system needs a concept of topic blocklists alongside the allowlist. These categories should not auto-generate drafts.</p>
 </div>
 
 <div class="callout amber"><strong>What the admin should see on the article page:</strong> "This analysis covers tickets where a human agent intervened. If AI resolved a query using this article and the user accepted, the system cannot verify whether that answer was correct."</div>
@@ -234,6 +259,12 @@ td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; 
 <div class="discuss">How does the system classify resolution type? LLM auto-classify (accurate, costs per ticket) vs structured agent input (adds friction) vs hybrid?</div>
 
 <div class="discuss">Does the creation path ship alongside correction in EA? Different LLM prompt, same infrastructure. Potentially more valuable for customers without a KB.</div>
+
+<div class="discuss">Should private comments be excluded from all KB learning pipelines? Clear answer for public KB (yes, exclude — leakage risk). Less clear for playbooks/private KB. What's the right boundary?</div>
+
+<div class="discuss">Do we need a blocklist concept at launch? Tax, finance, health topics may need to be excluded from AI draft generation — not just flagged. Where does that configuration live — queue level, topic level, global setting?</div>
+
+<div class="discuss">How do we handle the search failure miscategorization problem? If retrieval fails, a ticket may be classified as "missing article" when the article exists — inflating the creation queue. Better retrieval would fix both the original query and the classification error. Is this a prerequisite for EA?</div>
 
 </section>
 
@@ -286,7 +317,7 @@ td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; 
 <h3>C. Converging with engineering</h3>
 <p>Derek independently developed a model with three classifications (Staleness, Gap, Logic/Action Limitation), a four-phase pipeline (Ingestion → Verification → Synthesis → Assignment), and a strategy for distinguishing search failures from content gaps. His model's key contribution: the "Action Limitation" category (resolutions requiring human authority aren't KB problems) and the Verification step (re-scan KB before concluding an article is missing).</p>
 
-<p>The unified model merges both: six classifications (Derek's three expanded with Kritika's "incomplete" and "too complex" distinctions), two resolution types (Kritika's informational vs action-based split), two customer journeys, two intervention points, and the blind spots neither model initially covered.</p>
+<p>The unified model merges both: six classifications (Derek's three expanded with Kritika's "incomplete" and "too complex" distinctions), two resolution types (Kritika's informational vs action-based split), two customer journeys, two intervention points, and the blind spots neither model initially covered. In a follow-up session, we aligned on Derek's three as the engineering-facing framing (Outdated, Missing, Logic/Action Limitation) — the six remain useful for design and diagnostic precision but aren't all distinct pipeline branches.</p>
 
 <h3>D. Reference documents</h3>
 <p>Full-detail versions for deeper reading:</p>
