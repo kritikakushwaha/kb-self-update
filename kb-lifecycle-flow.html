@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KB Self-Learning — Ticket Lifecycle Flow</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', system-ui, sans-serif; background: #FAFAFA; color: #1a1d2e; }
+.wrap { max-width: 100%; padding: 24px; }
+h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.sub { font-size: 13px; color: #8B8FA3; margin-bottom: 16px; }
+.flow { display: flex; gap: 0; overflow-x: auto; padding: 1rem 0 1.5rem; min-height: 580px; }
+.phase { min-width: 200px; display: flex; flex-direction: column; border-right: 0.5px dashed #E8E9ED; padding: 0 12px; position: relative; }
+.phase:last-child { border-right: none; }
+.phase-hdr { font-size: 11px; font-weight: 500; color: #8B8FA3; text-transform: uppercase; letter-spacing: 0.06em; padding: 4px 8px; margin-bottom: 12px; text-align: center; border-bottom: 0.5px solid #E8E9ED; }
+.node { padding: 10px 12px; border-radius: 8px; border: 0.5px solid #E8E9ED; background: #fff; margin-bottom: 8px; font-size: 12px; line-height: 1.5; }
+.node h4 { font-size: 13px; font-weight: 600; margin: 0 0 4px; }
+.node p { margin: 0; color: #4B5064; font-size: 12px; }
+.ai-tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; margin-bottom: 6px; }
+.ai-backend { background: #E6F1FB; color: #185FA5; }
+.ai-frontend { background: #EAF3DE; color: #3B6D11; }
+.ai-blind { background: #FCEBEB; color: #A32D2D; }
+.ai-opportunity { background: #FAEEDA; color: #854F0B; }
+.conn { display: flex; align-items: center; justify-content: center; font-size: 16px; color: #8B8FA3; min-width: 20px; padding-top: 40px; }
+.section-label { font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; padding: 4px 8px; border-radius: 4px; margin-bottom: 8px; text-align: center; }
+.callout { padding: 8px 10px; border-radius: 6px; font-size: 11px; line-height: 1.5; margin-bottom: 8px; background: #FCEBEB; color: #A32D2D; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; padding: 12px 0; border-top: 0.5px solid #E8E9ED; margin-top: 8px; font-size: 12px; color: #4B5064; }
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>KB self-learning: where AI intervenes across the ticket lifecycle</h1>
+<p class="sub">Scroll right to follow the full flow. Color-coded by intervention type.</p>
+
+<div class="flow">
+
+<div class="phase" style="min-width: 180px;">
+<div class="phase-hdr">AI chat</div>
+<div class="node">
+<h4>User asks a question</h4>
+<p>Via chat portal or Slack</p>
+</div>
+<div class="node" style="border-color: #B5D4F4;">
+<span class="ai-tag ai-backend">AI backend</span>
+<h4>Search KB for answer</h4>
+<p>RAG retrieval across queue's KB articles</p>
+</div>
+<div class="node" style="border-color: #C0DD97;">
+<span class="ai-tag ai-frontend">AI frontend</span>
+<h4>Show answer to user</h4>
+<p>Cite the source article</p>
+</div>
+<div class="callout" style="margin-top: auto;">
+<strong>Blind spot: silent deflection</strong>
+<br>If AI gives wrong answer and user accepts — no signal generated. System thinks it worked.
+</div>
+</div>
+
+<div class="conn">→</div>
+
+<div class="phase" style="min-width: 170px;">
+<div class="phase-hdr">AI fails — why?</div>
+<div class="node"><h4>Article outdated</h4><p>Has wrong info</p></div>
+<div class="node"><h4>Article incomplete</h4><p>Doesn't cover this topic</p></div>
+<div class="node"><h4>No article exists</h4><p>KB gap</p></div>
+<div class="node"><h4>Too complex</h4><p>Right info, user can't follow</p></div>
+<div class="node"><h4>Action required</h4><p>Needs human, not knowledge</p></div>
+<div class="node"><h4>Search failure</h4><p>Article exists, not surfaced</p></div>
+</div>
+
+<div class="conn">→</div>
+
+<div class="phase" style="min-width: 180px;">
+<div class="phase-hdr">Ticket created</div>
+<div class="node">
+<h4>Ticket enters queue</h4>
+<p>Queue assigned, agent assigned</p>
+</div>
+<div class="node" style="border-color: #B5D4F4;">
+<span class="ai-tag ai-backend">AI backend</span>
+<h4>Log article reference</h4>
+<p>Store which KB article was surfaced on this ticket. The foundation data point.</p>
+</div>
+<div class="node">
+<h4>Ticket details</h4>
+<p>Conversation with user, internal notes, agent tags</p>
+</div>
+<div class="node" style="border-color: #C0DD97;">
+<span class="ai-tag ai-frontend">AI frontend</span>
+<h4>Suggest KB articles</h4>
+<p>AI copilot surfaces relevant articles to the agent while they work</p>
+</div>
+</div>
+
+<div class="conn">→</div>
+
+<div class="phase" style="min-width: 220px;">
+<div class="phase-hdr">Agent resolves</div>
+<div class="section-label" style="background: #EAF3DE; color: #3B6D11;">Informational resolution</div>
+<div class="node">
+<h4>Agent provides knowledge</h4>
+<p>Explains policy, corrects a fact, gives a how-to. This is what feeds KB articles.</p>
+</div>
+<div class="section-label" style="background: #E6F1FB; color: #185FA5;">Action-based resolution</div>
+<div class="node">
+<h4>Agent performs an action</h4>
+<p>Resets account, provisions tool, grants access. Not a knowledge problem — requires human authority.</p>
+</div>
+<div class="callout" style="margin-top: auto;">
+<strong>Blind spot: echo problem</strong>
+<br>Agent trusts wrong article, repeats wrong answer. Zero delta. System sees nothing wrong.
+</div>
+</div>
+
+<div class="conn">→</div>
+
+<div class="phase" style="min-width: 240px;">
+<div class="phase-hdr">Immediate: on this ticket</div>
+<div class="node" style="border-color: #FAC775;">
+<span class="ai-tag ai-opportunity">AI opportunity</span>
+<h4>Prompt agent after resolve</h4>
+<p>"You referenced info not in any KB. Want to save this as an article?"</p>
+</div>
+<div class="node" style="border-color: #FAC775;">
+<span class="ai-tag ai-opportunity">AI opportunity</span>
+<h4>Flag potential KB issue</h4>
+<p>"The article you used may be outdated — your answer differs from it."</p>
+</div>
+<div class="node" style="border-color: #FAC775;">
+<span class="ai-tag ai-opportunity">AI opportunity</span>
+<h4>Propose routing article</h4>
+<p>For action-based: "This always needs a human. Create article so AI sets expectations next time."</p>
+</div>
+<div class="node" style="border-color: #C0DD97;">
+<span class="ai-tag ai-frontend">AI frontend</span>
+<h4>Agent feedback channel</h4>
+<p>Agent flags: "I used this article but I'm not confident." Catches the echo problem.</p>
+</div>
+</div>
+
+<div class="conn">→</div>
+
+<div class="phase" style="min-width: 260px;">
+<div class="phase-hdr">Retroactive: on KB page</div>
+<div class="node" style="border-color: #B5D4F4;">
+<span class="ai-tag ai-backend">AI backend</span>
+<h4>Classify why AI failed</h4>
+<p>LLM analyzes transcript vs article. Outdated? Incomplete? Gap? Too complex? Action? Search failure?</p>
+</div>
+<div class="node" style="border-color: #B5D4F4;">
+<span class="ai-tag ai-backend">AI backend</span>
+<h4>Accumulate across tickets</h4>
+<p>Same finding from multiple tickets = pattern. Detect agent conflicts (different answers to same question).</p>
+</div>
+<div class="node" style="border-color: #C0DD97;">
+<span class="ai-tag ai-frontend">AI frontend</span>
+<h4>Surface on article page</h4>
+<p>"Surfaced 50 times, escalated 38. Here are the conversations."</p>
+</div>
+<div class="node" style="border-color: #C0DD97;">
+<span class="ai-tag ai-frontend">AI frontend</span>
+<h4>Draft correction or new article</h4>
+<p>Diff view + citation trail. Correction path or creation path. Admin approves.</p>
+</div>
+<div class="node" style="border-color: #C0DD97;">
+<span class="ai-tag ai-frontend">AI frontend</span>
+<h4>Conflict alert</h4>
+<p>"Agent A said 3 days, Agent B said 2 days. Human verification needed."</p>
+</div>
+</div>
+
+</div>
+
+<div class="legend">
+<div class="legend-item"><div class="legend-dot" style="background: #185FA5;"></div> AI backend (detection, analysis)</div>
+<div class="legend-item"><div class="legend-dot" style="background: #3B6D11;"></div> AI frontend (surfaces to user)</div>
+<div class="legend-item"><div class="legend-dot" style="background: #854F0B;"></div> AI opportunity (proposed intervention)</div>
+<div class="legend-item"><div class="legend-dot" style="background: #A32D2D;"></div> Blind spot (system cannot see)</div>
+</div>
+
+</div>
+</body>
+</html>

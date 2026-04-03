@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KB Self-Learning — One Pager</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', system-ui, sans-serif; background: #fff; color: #1a1d2e; line-height: 1.7; }
+.wrap { max-width: 680px; margin: 0 auto; padding: 48px 24px 80px; }
+h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 16px; font-weight: 700; margin: 36px 0 8px; }
+p { font-size: 14px; color: #4B5064; margin-bottom: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 10px 0 16px; }
+th { text-align: left; padding: 8px 10px; background: #F9F9FB; border-bottom: 2px solid #E8E9ED; font-weight: 600; font-size: 11px; color: #8B8FA3; text-transform: uppercase; letter-spacing: 0.04em; }
+td { padding: 8px 10px; border-bottom: 1px solid #F5F5F7; vertical-align: top; color: #4B5064; }
+.row { display: flex; gap: 12px; margin: 12px 0; }
+.box { flex: 1; padding: 14px; border-radius: 8px; border: 1px solid #E8E9ED; }
+.box h3 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.box p { font-size: 13px; margin: 0; }
+.blind { padding: 12px 14px; border-left: 3px solid #A32D2D; background: #FCEBEB; margin: 8px 0; font-size: 13px; color: #791F1F; border-radius: 0; }
+.q { padding: 10px 14px; background: #FFF8F0; border: 1px dashed #EF9F27; border-radius: 6px; margin: 6px 0; font-size: 13px; color: #854F0B; }
+.label { font-size: 11px; font-weight: 600; color: #8B8FA3; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.muted { font-size: 12px; color: #8B8FA3; }
+hr { border: none; border-top: 1px solid #E8E9ED; margin: 36px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="label">Kritika + Derek · for discussion</div>
+<h1>KB self-learning model</h1>
+<p class="muted" style="margin-bottom: 24px;">Full exploration doc available separately with pipeline detail, scenarios, prototypes, and competitive context.</p>
+
+<h2>The problem</h2>
+<p>When AI chat fails and a human agent resolves the ticket, nobody goes back to check what went wrong with the KB. The article stays broken until someone randomly notices. Separately, customers with sparse or no KB can't get value from AI chat at all because there's nothing for it to reference.</p>
+
+<h2>The model: why did AI fail?</h2>
+<p>Every human-resolved ticket is a signal. The system classifies what kind, then acts accordingly.</p>
+
+<table>
+<tr><th>Classification</th><th>What happened</th><th>System response</th></tr>
+<tr><td><strong>Outdated article</strong></td><td>Article has wrong info. Agent corrected it.</td><td>Draft a correction with evidence.</td></tr>
+<tr><td><strong>Incomplete article</strong></td><td>Article exists but doesn't cover this topic.</td><td>Draft an addition to the article.</td></tr>
+<tr><td><strong>No article exists</strong></td><td>Agent answered from scratch. Nothing in KB.</td><td>Draft a new article from the resolution.</td></tr>
+<tr><td><strong>Too complex</strong></td><td>Right info exists but user couldn't follow it.</td><td>Flag for simplification — content design, not factual fix.</td></tr>
+<tr><td><strong>Action required</strong></td><td>Agent did something (reset account, provisioned tool). Not a knowledge gap.</td><td>Propose a routing article: "This needs a human — AI creates ticket + sets expectations."</td></tr>
+<tr><td><strong>Search failure</strong></td><td>Article exists but AI didn't find it.</td><td>Retrieval/RAG problem, not content. Log separately.</td></tr>
+</table>
+
+<p>For informational resolutions, the system compares the agent's answer to the KB article (or extracts knowledge if no article exists). For action-based resolutions, it proposes a different kind of article — one that helps AI route correctly next time.</p>
+
+<h2>Two customer journeys, same pipeline</h2>
+
+<div class="row">
+<div class="box" style="border-color: #0F6E56;">
+<h3 style="color: #0F6E56;">Has existing KB</h3>
+<p>Articles go stale. Corrections needed. "Your HSA article is wrong — here's the fix, based on 3 agents who corrected it."</p>
+</div>
+<div class="box" style="border-color: #534AB7;">
+<h3 style="color: #534AB7;">Building KB from scratch</h3>
+<p>No articles yet. "Your agents answered 8 GitHub 2FA questions this month. Here's a draft article from their answers."</p>
+</div>
+</div>
+
+<h2>What this can't see</h2>
+
+<div class="blind"><strong>Echo problem:</strong> Agent trusts the wrong article, repeats the wrong answer. Zero delta. System thinks everything's fine. Especially dangerous for health benefits, compliance, financial data.</div>
+
+<div class="blind"><strong>Silent deflection:</strong> AI gives wrong answer, user accepts, no ticket created. Deflection rate looks healthy while the answer is wrong.</div>
+
+<p>These are structural limitations of any system that relies on human-resolved tickets as signal. Mitigations exist (agent feedback channel, time-based review, AI conversation logging) but are separate workstreams.</p>
+
+<hr>
+
+<h2>What we need to align on</h2>
+
+<div class="q"><strong>1. Are we logging which KB article gets surfaced per ticket?</strong> This is the prerequisite. If not, it's the first thing to build — one database column.</div>
+
+<div class="q"><strong>2. EA scope:</strong> Do we ship visibility only (article failed N times, here are the conversations — no LLM) or include the classification + diagnosis layer (LLM tells admin what's wrong)?</div>
+
+<div class="q"><strong>3. Intervention timing:</strong> Immediate (prompt the agent right after resolution: "want to save this as an article?") or retroactive (batch analysis surfaced on KB page) or both?</div>
+
+<div class="q"><strong>4. How does the system classify resolution type?</strong> LLM auto-classifies from transcript (accurate, costs per ticket) vs structured agent input at resolution (adds friction) vs hybrid?</div>
+
+<div class="q"><strong>5. Does the creation path ship alongside correction in EA?</strong> Different LLM prompt, same infrastructure. Potentially more valuable for customers without a KB.</div>
+
+</div>
+</body>
+</html>

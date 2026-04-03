@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KB Self-Learning — Unified Model Proposal</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', system-ui, sans-serif; background: #FAFAFA; color: #1a1d2e; line-height: 1.7; }
+.wrap { max-width: 800px; margin: 0 auto; padding: 40px 32px 80px; }
+h1 { font-size: 26px; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.02em; }
+h2 { font-size: 19px; font-weight: 700; margin: 44px 0 12px; padding-bottom: 8px; border-bottom: 2px solid #E8E9ED; }
+h3 { font-size: 15px; font-weight: 700; margin: 24px 0 8px; color: #4B5064; }
+h4 { font-size: 13px; font-weight: 700; margin: 16px 0 6px; }
+p { font-size: 14px; color: #4B5064; margin-bottom: 12px; }
+.sub { font-size: 15px; color: #8B8FA3; margin-bottom: 24px; }
+.label { font-size: 11px; font-weight: 600; color: #8B8FA3; text-transform: uppercase; letter-spacing: 0.04em; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+.src-k { background: #EEEDFE; color: #534AB7; }
+.src-d { background: #E6F1FB; color: #185FA5; }
+.src-new { background: #EAF3DE; color: #3B6D11; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0 16px; }
+th { text-align: left; padding: 10px 12px; background: #F9F9FB; border-bottom: 2px solid #E8E9ED; font-weight: 600; font-size: 12px; color: #8B8FA3; text-transform: uppercase; letter-spacing: 0.04em; }
+td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; color: #4B5064; }
+tr:nth-child(even) td { background: #FAFAFA; }
+.card { background: #fff; border: 1px solid #E8E9ED; border-radius: 10px; padding: 20px; margin-bottom: 14px; }
+.card.l { border-left: 3px solid; border-radius: 0; }
+.callout { padding: 14px 16px; border-left: 3px solid; margin: 14px 0; font-size: 13px; line-height: 1.7; border-radius: 0; }
+.callout.teal { background: #E1F5EE; border-color: #0F6E56; color: #085041; }
+.callout.amber { background: #FAEEDA; border-color: #854F0B; color: #633806; }
+.callout.red { background: #FCEBEB; border-color: #A32D2D; color: #791F1F; }
+.callout.blue { background: #E6F1FB; border-color: #185FA5; color: #0C447C; }
+.callout.purple { background: #EEEDFE; border-color: #534AB7; color: #3C3489; }
+.callout.gray { background: #F1EFE8; border-color: #5F5E5A; color: #444441; }
+.row { display: flex; gap: 14px; margin: 14px 0; }
+.row > div { flex: 1; }
+.discuss { background: #FFF8F0; border: 1px dashed #EF9F27; border-radius: 8px; padding: 12px 16px; margin: 12px 0; font-size: 13px; color: #854F0B; }
+.discuss::before { content: "Discussion point — "; font-weight: 700; }
+ol, ul { margin: 8px 0 14px 20px; font-size: 14px; color: #4B5064; }
+li { margin-bottom: 6px; }
+.flow-row { display: flex; align-items: center; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+.flow-box { padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; }
+.flow-arrow { color: #8B8FA3; font-size: 18px; }
+@media (max-width: 700px) { .row { flex-direction: column; } .wrap { padding: 24px 16px 60px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="label">Proposal for discussion · Kritika + Derek</div>
+<h1>KB self-learning: unified model</h1>
+<p class="sub">A merged model combining both perspectives. Items marked with <span class="badge src-k">Kritika</span> <span class="badge src-d">Derek</span> <span class="badge src-new">New</span> show where each idea originated. Everything here is a starting point for filtering together — not a final spec.</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>The problem we're solving</h2>
+
+<p>Right now, when AI chat uses a KB article and it doesn't help — the user submits a ticket, an agent resolves it, and that's it. Nobody goes back to check whether the article was wrong. Nobody connects the dots between "this article was shown to the user" and "a human still had to step in." The KB stays broken until someone randomly notices.</p>
+
+<p>Separately, many of our customers don't have a rich KB at all. They can't get value from AI chat because there's nothing for it to reference. For them, the problem isn't fixing wrong articles — it's creating articles in the first place.</p>
+
+<p>This model addresses both: maintaining existing KBs and building new ones, using the same underlying pipeline.</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>The model at a glance</h2>
+
+<div class="flow-row">
+  <div class="flow-box" style="background: #F1EFE8; color: #5F5E5A;">Human resolves ticket</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box" style="background: #EEEDFE; color: #534AB7;">Classify what happened</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box" style="background: #E6F1FB; color: #185FA5;">Diagnose the KB gap</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box" style="background: #E1F5EE; color: #0F6E56;">Surface insight + draft</div>
+</div>
+
+<p>Every human-resolved ticket is a signal. The system classifies what kind of signal, runs a diagnosis, and surfaces the insight to the right person. Sometimes that's a draft article update. Sometimes it's a new article proposal. Sometimes it's just "heads up, this article is failing and here are the conversations."</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Step 1: why did AI fail?</h2>
+
+<p>Before analyzing what to fix, classify <em>why</em> the query reached a human. This determines what the system does next.</p>
+
+<table>
+  <tr><th>Classification</th><th>What happened</th><th>What the system does</th><th>Source</th></tr>
+  <tr>
+    <td><strong>Outdated/wrong article</strong></td>
+    <td>KB article exists but contains incorrect info. Agent corrected it.</td>
+    <td>Correction path — compare resolution to article, draft the fix.</td>
+    <td><span class="badge src-d">Derek</span> <span class="badge src-k">Kritika</span></td>
+  </tr>
+  <tr>
+    <td><strong>Incomplete article</strong></td>
+    <td>Article exists but doesn't cover the specific topic the user asked about.</td>
+    <td>Missing info finding — propose addition to existing article.</td>
+    <td><span class="badge src-k">Kritika</span></td>
+  </tr>
+  <tr>
+    <td><strong>No article exists</strong></td>
+    <td>No relevant article in the KB at all. Agent provided the answer from scratch.</td>
+    <td>Creation path — extract knowledge, propose new article.</td>
+    <td><span class="badge src-d">Derek</span> <span class="badge src-k">Kritika</span></td>
+  </tr>
+  <tr>
+    <td><strong>Article too complex</strong></td>
+    <td>The right info exists in the KB but was too complex for the user to follow. Agent had to walk them through it.</td>
+    <td>Simplification signal — flag the article for content redesign, not factual correction.</td>
+    <td><span class="badge src-k">Kritika</span></td>
+  </tr>
+  <tr>
+    <td><strong>Action required (not a knowledge problem)</strong></td>
+    <td>The resolution required a human action: provisioning access, resetting an account, physical equipment, VP approval.</td>
+    <td>Not a KB content gap. Log as intent limitation. BUT: opportunity to create a "routing article" so AI can say "this needs a human — I've created a ticket for you" next time instead of failing silently.</td>
+    <td><span class="badge src-d">Derek</span> <span class="badge src-k">Kritika</span></td>
+  </tr>
+  <tr>
+    <td><strong>Search failure (article exists, wasn't surfaced)</strong></td>
+    <td>A relevant article exists but AI's search didn't find it.</td>
+    <td>Not a content problem — it's a retrieval/RAG problem. Log separately. Don't trigger KB updates.</td>
+    <td><span class="badge src-d">Derek</span></td>
+  </tr>
+</table>
+
+<div class="discuss">How does the system classify these? Options: LLM classifies automatically from the transcript (higher cost, more accurate), structured agent input at resolution (adds friction), or hybrid — system guesses, agent confirms with one tap. Derek proposed a Verification step where AI re-scans the KB to distinguish search failures from true gaps. How expensive is that?</div>
+
+<div class="callout purple"><strong>The "action required" insight:</strong> When an agent provisions a tool or resets an account, the system shouldn't try to write a how-to article. But it SHOULD create a routing article — so next time AI chat can say "I know what you need, and it requires a human agent. I've created a ticket — expect resolution within 4 hours." That's a deflection in the sense that the user gets an immediate, helpful answer. It just doesn't resolve the underlying request.</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Step 2: what data do we capture?</h2>
+
+<table>
+  <tr><th>Data</th><th>Source</th><th>Why it matters</th></tr>
+  <tr><td>Full ticket conversation</td><td>Ticket thread</td><td>Contains what the user asked and what the agent actually said — this is where the correct answer lives</td></tr>
+  <tr><td>Which KB article was surfaced (if any)</td><td>AI chat logs</td><td>Tells us which article to compare against. May be null.</td></tr>
+  <tr><td>Resolution type</td><td>Classification from Step 1</td><td>Determines which path the system takes</td></tr>
+  <tr><td>Agent's resolution note</td><td>Ticket resolution field</td><td>Concise summary of what the agent did/told the user</td></tr>
+  <tr><td>Agent's internal notes</td><td>Ticket notes</td><td>Agents sometimes flag KB problems explicitly here. But today this field mixes notes-to-self, messages to other agents, and incidental KB feedback.</td></tr>
+  <tr><td>Queue + intent</td><td>Ticket metadata</td><td>Routes the finding to the right KB and article</td></tr>
+</table>
+
+<div class="discuss">Are we currently logging which KB article gets surfaced per ticket? If not, this is the prerequisite for everything. One database column.</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Step 3: diagnosis — two resolution types, two paths</h2>
+
+<p><span class="badge src-k">Kritika</span> Not every resolution is the same. The system should distinguish between informational resolutions and action-based resolutions because they produce different kinds of knowledge.</p>
+
+<div class="row">
+  <div class="card l" style="border-color: #0F6E56;">
+    <h4 style="color: #0F6E56;">Informational resolution</h4>
+    <p>Agent provides knowledge: explains a policy, gives a how-to, corrects a wrong fact. This is what feeds KB articles.</p>
+    <p><strong>System action:</strong> Compare agent's answer to the KB article (correction path) or extract knowledge for a new article (creation path).</p>
+  </div>
+  <div class="card l" style="border-color: #534AB7;">
+    <h4 style="color: #534AB7;">Action-based resolution</h4>
+    <p>Agent does something: provisions access, resets credentials, escalates to another team, approves a request. The knowledge isn't "how to do X" — it's "this requires a human."</p>
+    <p><strong>System action:</strong> Log as intent limitation. Propose a "routing article" so AI can set expectations and create a ticket next time instead of failing silently.</p>
+  </div>
+</div>
+
+<div class="callout teal"><strong>Why this matters:</strong> Without this split, the system might try to write a KB article that says "here's how to reset someone's account" from an agent's resolution. That's not useful — users can't reset their own accounts. The useful article is: "Account resets require IT support. When you ask, AI will create a ticket and IT typically resolves it within 2 hours."</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Step 4: the LLM analysis</h2>
+
+<p><span class="badge src-d">Derek</span> <span class="badge src-k">Kritika</span> For informational resolutions, the system runs a comparison between the agent's resolution and the KB article (or extracts knowledge if no article exists).</p>
+
+<h3>Correction path (article exists)</h3>
+<p>LLM receives: article content + ticket transcript + agent notes. Outputs structured findings:</p>
+<ul>
+  <li><strong>Wrong info:</strong> article says X, agent corrected to Y. Example: "$3,650 → $4,150."</li>
+  <li><strong>Missing info:</strong> agent provided information the article doesn't cover. Example: SpringHealth therapy benefit.</li>
+  <li>Each finding tagged <strong>general</strong> (all users) vs <strong>specific</strong> (this one person). Only general findings feed into KB changes.</li>
+</ul>
+
+<h3>Creation path (no article)</h3>
+<p>LLM extracts generalizable knowledge from the resolution. What question was asked, what the answer was, whether other users would ask the same thing.</p>
+
+<h3>Verification step <span class="badge src-d">Derek</span></h3>
+<p>Before concluding "no article exists," the system re-scans the KB to check if a relevant article was just buried by poor search ranking. This distinguishes true content gaps from search/retrieval failures.</p>
+
+<div class="discuss">How expensive is the verification step? For EA, we could skip it and only process tickets where an article was already linked (simple DB lookup). The verification step becomes valuable when we want to catch search failures too.</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Step 5: accumulation — building confidence across tickets</h2>
+
+<p><span class="badge src-k">Kritika</span> One ticket finding something wrong is a signal. Multiple tickets finding the same thing is a pattern. The system groups findings by article + subject across tickets.</p>
+
+<p>The key principle: every finding is visible to the admin from the first ticket. The question is only whether the system does the extra work of generating a draft automatically or waits for more signal.</p>
+
+<h3>Agent conflict detection <span class="badge src-k">Kritika</span></h3>
+<p>If two tickets correct the same fact but agents give different answers (one says "3 days" and another says "2 days"), the system surfaces a <strong>conflict alert</strong> instead of a draft. This is higher priority than a normal finding — users are actively getting inconsistent answers.</p>
+
+<div class="callout red"><strong>Conflict example:</strong> PTO advance notice. Jordan Blake tells one user "3 business days." Lisa Park tells another "2 business days." The article says "5 business days." All three are different. The system cannot pick one — it needs human verification before any KB update.</div>
+
+<h3>Prioritization</h3>
+<p>Not all findings are equal. A wrong number in an article viewed 400 times/month matters more than a minor phrasing issue in an article viewed 10 times. Findings should be ranked by signal strength — number of corroborating tickets, article view count, deflection rate.</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Step 6: what the system outputs</h2>
+
+<p>Depending on what was found, the system produces one of several outputs:</p>
+
+<table>
+  <tr><th>Finding type</th><th>System output</th><th>What the admin sees</th></tr>
+  <tr><td>Wrong info (article exists)</td><td>Correction draft</td><td>Diff view: current vs proposed. Citation trail linking every change to specific ticket conversations.</td></tr>
+  <tr><td>Missing info (article exists)</td><td>Addition draft</td><td>Proposed new section for the existing article, with evidence.</td></tr>
+  <tr><td>No article exists</td><td>New article proposal</td><td>Draft article synthesized from agent resolutions on this topic.</td></tr>
+  <tr><td>Action-based resolution</td><td>Routing article proposal</td><td>"This topic requires human action. Proposed article: set user expectations + auto-create ticket."</td></tr>
+  <tr><td>Agent conflict</td><td>Conflict alert</td><td>"Two agents gave different answers. Here are both. Human verification needed."</td></tr>
+  <tr><td>Too complex</td><td>Simplification flag</td><td>"This article has the right info but users can't follow it. N tickets escalated despite the answer being there."</td></tr>
+  <tr><td>Search failure</td><td>Retrieval flag</td><td>"This article exists but wasn't surfaced. Search/RAG quality issue, not a content issue."</td></tr>
+</table>
+
+<p>Admin actions on any draft: <strong>approve & publish</strong>, <strong>edit first</strong>, or <strong>dismiss</strong>. Every approved change keeps the previous version so the admin can revert if needed.</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>When does this run?</h2>
+
+<p><span class="badge src-k">Kritika</span> Two intervention points, not one:</p>
+
+<div class="row">
+  <div class="card l" style="border-color: #854F0B;">
+    <h4 style="color: #854F0B;">Immediate: on that ticket</h4>
+    <p>As soon as the agent resolves the ticket, the system can proactively surface an insight right there: "It looks like you referenced info that isn't in the KB — want to save this as an article?" or "The article you used may be outdated — here's what we noticed."</p>
+    <p>This catches agents in the moment while context is fresh.</p>
+  </div>
+  <div class="card l" style="border-color: #185FA5;">
+    <h4 style="color: #185FA5;">Retroactive: on the KB page</h4>
+    <p>Batch analysis across multiple tickets. The KB article page shows: "X tickets suggest this article needs changes." Findings accumulated, conflicts detected, drafts generated.</p>
+    <p>This is where patterns become visible — one ticket is a signal, three is a trend.</p>
+  </div>
+</div>
+
+<div class="discuss">For EA, which intervention point comes first? Immediate (per-ticket, lower lift, less intelligent) or retroactive (batch, needs accumulation logic, more powerful)? Or is the foundation just the visibility layer — "this article was surfaced N times, escalated N times, here are the conversations" — with no LLM at all?</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Two customer journeys, same pipeline</h2>
+
+<div class="row">
+  <div class="card l" style="border-color: #0F6E56;">
+    <h4 style="color: #0F6E56;">Customer A: has existing KB</h4>
+    <p>Their problem is maintenance. Articles go stale, policies change, new benefits get added. They need the correction path — find what's wrong and draft the fix.</p>
+    <p><strong>Primary value:</strong> "Your Benefits article is wrong about HSA limits. Here's the fix, based on 3 agents who independently corrected it this month."</p>
+  </div>
+  <div class="card l" style="border-color: #534AB7;">
+    <h4 style="color: #534AB7;">Customer B: building KB from scratch</h4>
+    <p>Their problem is that they don't have articles at all. They can't get value from AI chat because there's nothing for it to reference. They need the creation path — generate articles from what agents are already telling users.</p>
+    <p><strong>Primary value:</strong> "Your agents answered 8 GitHub 2FA questions this month. Here's a draft article based on their answers. Publish it and AI can handle these next time."</p>
+  </div>
+</div>
+
+<div class="callout teal"><strong>Same pipeline, different output.</strong> Correction path: article + transcript → find what's wrong → draft the fix. Creation path: transcript (no article) → extract knowledge → draft new article. The infrastructure is shared. The LLM prompt is slightly different. Both produce a draft for admin review.</div>
+
+<p><span class="badge src-new">New</span> There's also a complementary approach for Customer B: allowlisted domain search at query time. Before a ticket even reaches an agent, check approved external sources (e.g., Slate public help docs). If found, deflect AND auto-generate a KB article. KB builds itself from real demand. This is upstream of the resolution drafts pipeline — it reduces the tickets that ever reach a human. Shared infrastructure, different trigger.</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>What this system cannot see</h2>
+
+<p><span class="badge src-k">Kritika</span> These are structural limitations, not implementation gaps. They must be communicated honestly — to the team and to the admin user.</p>
+
+<div class="row">
+  <div class="card l" style="border-color: #A32D2D;">
+    <h4 style="color: #A32D2D;">Blind spot 1: the echo problem</h4>
+    <p>Agent reads the KB article, trusts it, tells the user the same wrong answer. Zero delta between article and resolution. The system thinks everything is fine. The KB stays wrong.</p>
+    <p>This is the most dangerous case — especially for high-stakes content like health benefits, compliance data, financial info. A wrong HSA limit has real consequences.</p>
+    <p><strong>Mitigation paths:</strong> Agent feedback channel (flag doubt), time-based decay (annually-changing data gets auto-flagged for review), external source monitoring.</p>
+  </div>
+  <div class="card l" style="border-color: #A32D2D;">
+    <h4 style="color: #A32D2D;">Blind spot 2: silent deflection</h4>
+    <p>AI gives a wrong answer from a wrong article. User accepts it. No ticket created. Deflection rate looks healthy while the answer is wrong. The user gets burned later (PTO request rejected, wrong HSA contribution).</p>
+    <p><strong>Mitigation path:</strong> Log all AI conversations (even when no ticket is created). When an article is later corrected, retroactively identify which AI deflections gave wrong answers. Potentially reach out to affected users.</p>
+  </div>
+</div>
+
+<div class="callout amber"><strong>What the admin should see on the article page:</strong> "This analysis covers tickets where a human agent intervened. If AI resolved a query using this article and the user accepted, the system has no way to verify whether that answer was correct. X conversations were resolved by AI using this article — those are not checked."</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>The agent's role in this system</h2>
+
+<p>Agents are both the source of truth (their resolutions contain the correct answers) and a potential point of failure (they can echo wrong KB content or disagree with each other).</p>
+
+<h3>Agent feedback channel <span class="badge src-k">Kritika</span></h3>
+<p>The echo problem makes this essential. Agents need a way to signal "I used this article but I'm not confident it's right" — even when they followed the article's guidance.</p>
+<p>This is broader than a thumbs button. It's about the agent having a space they understand they can use to provide feedback to the system about knowledge quality. The UI form is an open design question:</p>
+
+<table>
+  <tr><th>Option</th><th>Signal quality</th><th>Friction</th></tr>
+  <tr><td>Dedicated prompt after resolution</td><td>High — explicit, structured</td><td>Medium — extra step</td></tr>
+  <tr><td>Annotation on KB article</td><td>Highest — tied to article</td><td>High — new interaction</td></tr>
+  <tr><td>Internal notes with better affordances</td><td>Variable</td><td>Low — already exists</td></tr>
+  <tr><td>Inline flag while composing reply</td><td>High — in the moment</td><td>Low — one click</td></tr>
+</table>
+
+<p><strong>Constraint:</strong> Whatever form it takes, the output needs to be structured enough for the system to act on — which article, what's wrong, general or specific.</p>
+
+<h3>Agent-side copilot <span class="badge src-k">Kritika</span></h3>
+<p>While the agent is working on a ticket, AI can proactively suggest relevant KB articles. This creates a natural moment for the agent to notice "this article is wrong" while they're actively using it. The green box: if response requires an internal KB article, AI proactively surfaces it.</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Layered approach to building this</h2>
+
+<p><span class="badge src-k">Kritika</span> This doesn't need to ship as one monolithic feature. Each layer adds value independently:</p>
+
+<table>
+  <tr><th>Layer</th><th>What it adds</th><th>LLM?</th><th>Complexity</th></tr>
+  <tr><td><strong>Foundation: visibility</strong></td><td>"This article was surfaced N times, escalated N times. Here are the conversations." Admin reads and fixes.</td><td>No</td><td>Low — one data point, one query</td></tr>
+  <tr><td><strong>+ Classification</strong></td><td>System categorizes why each ticket escalated (outdated, missing, too complex, action needed, search failure)</td><td>Yes</td><td>Medium</td></tr>
+  <tr><td><strong>+ Diagnosis</strong></td><td>LLM tells admin specifically what's wrong: "$3,650 should be $4,150"</td><td>Yes</td><td>Medium</td></tr>
+  <tr><td><strong>+ Draft generation</strong></td><td>System writes the fix. Correction drafts, creation drafts, routing articles.</td><td>Yes</td><td>Medium-high</td></tr>
+  <tr><td><strong>+ Accumulation</strong></td><td>Cross-ticket pattern detection. Conflict alerts. Prioritization by impact.</td><td>Yes</td><td>High</td></tr>
+  <tr><td><strong>+ Outcome tracking</strong></td><td>Deflection rate before/after each update. Draft acceptance rate. Closed-loop learning.</td><td>No</td><td>Low-medium</td></tr>
+</table>
+
+<div class="discuss">Where do we draw the EA line? The foundation (visibility only) is buildable in days. Adding classification + diagnosis is a bigger lift but much more useful. Does EA include draft generation or is that v2?</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Success metrics <span class="badge src-d">Derek</span></h2>
+
+<table>
+  <tr><th>KPI</th><th>What it measures</th><th>Target</th></tr>
+  <tr><td><strong>Deflection growth</strong></td><td>Increase in tickets resolved by AI in the week following a KB update</td><td>Measurable improvement per updated article</td></tr>
+  <tr><td><strong>Draft acceptance rate</strong></td><td>% of AI-generated drafts published without major edits</td><td>Indicates system trustworthiness. Low rate = thresholds need adjusting.</td></tr>
+  <tr><td><strong>Staleness identification</strong></td><td>Number of outdated articles flagged by AI before a user complains</td><td>System catches problems before users do</td></tr>
+  <tr><td><strong>Time to KB update</strong></td><td>How long between "article becomes wrong" and "article gets fixed"</td><td>Days → hours</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Engineering considerations</h2>
+
+<h3>Data prerequisites</h3>
+<ul>
+  <li><strong>Log KB article per ticket</strong> — which article AI surfaced. If not logging this today, it's the #1 prerequisite.</li>
+  <li><strong>Log deflection outcome</strong> — did the user self-serve or did it become a human ticket?</li>
+  <li><strong>Findings store</strong> — structured output per ticket from the LLM analysis.</li>
+  <li><strong>KB-queue relationship</strong> — currently 1:1, will evolve. Build article lookup as a swappable function.</li>
+</ul>
+
+<h3>Cost estimate</h3>
+<p>Per resolved ticket: one LLM call (~2K tokens in, ~500 out) = $0.01–0.03. Draft generation when findings accumulate: ~$0.03 per draft. For 50 human-handled tickets/week: <strong>~$1–3/week total LLM cost.</strong></p>
+
+<h3>Batch vs real-time</h3>
+<p>Nightly batch for EA — collect the day's resolved tickets, process together. Simpler infrastructure, easier to monitor. Real-time processing is a future optimization.</p>
+
+<div class="discuss">Derek proposed a "Post-Mortem Workflow" that triggers automatically when a ticket is resolved. Is this the same as the nightly batch, or does it need to be synchronous/near-realtime? What's the engineering preference?</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Open questions</h2>
+
+<table>
+  <tr><th>Question</th><th>Context</th></tr>
+  <tr><td>Are we logging which KB article gets surfaced per ticket?</td><td>Prerequisite for everything. Determines whether we start with the foundation or need to build the data layer first.</td></tr>
+  <tr><td>How does the system classify resolution type?</td><td>LLM auto-classify (expensive, accurate) vs structured agent input (friction) vs hybrid?</td></tr>
+  <tr><td>What triggers "resolved by human" vs "resolved by AI"?</td><td>Pipeline only runs on human resolutions.</td></tr>
+  <tr><td>Where do drafts live in the data model?</td><td>Separate table: article_id (nullable for creation path), proposed_content, findings[], status.</td></tr>
+  <tr><td>Who gets notified?</td><td>Queue admin? Article owner? Both?</td></tr>
+  <tr><td>How does Derek's Verification step (re-scan KB) fit into the pipeline?</td><td>Useful for distinguishing search failures from true gaps. Cost vs accuracy tradeoff.</td></tr>
+  <tr><td>EA scope: which layers, which customer journey?</td><td>Foundation only? Foundation + diagnosis? Both correction and creation paths?</td></tr>
+  <tr><td>Agent feedback channel: what form?</td><td>Essential for echo problem mitigation. Design exploration needed.</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>What's not in this model (intentionally)</h2>
+
+<ul>
+  <li><strong>Auto-publishing</strong> — too early. No approval history to calibrate confidence yet. North star, not EA.</li>
+  <li><strong>Source sync</strong> — monitoring upstream docs for changes. Valuable but separate infrastructure.</li>
+  <li><strong>Copy-paste diffs</strong> — detecting when agents edit KB content before sending. Interesting signal, unclear build cost.</li>
+  <li><strong>Full gap detection</strong> — clustering all unmatched tickets to propose new articles. The creation path handles the most common case; full clustering is v2+.</li>
+</ul>
+
+<div style="margin-top: 48px; padding-top: 24px; border-top: 2px solid #E8E9ED;">
+  <p class="label">Next steps</p>
+  <p><strong>1.</strong> Walk through this together — filter out what Derek isn't confident about for EA</p>
+  <p><strong>2.</strong> Verify the data prerequisite: are we logging article ID per ticket?</p>
+  <p><strong>3.</strong> Align on EA scope: which layers, which paths</p>
+  <p><strong>4.</strong> Get vibe check from Amar on what qualifies as "self-learning"</p>
+  <p><strong>5.</strong> Design exploration: agent feedback channel UI</p>
+  <p><strong>6.</strong> Design systems meeting for EA UI porting</p>
+</div>
+
+</div>
+</body>
+</html>
