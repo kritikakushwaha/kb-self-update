@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Resolution Drafts — Pipeline Simulator</title>
+<title>KB Self-Learning — Pipeline Simulator</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
@@ -13,561 +13,415 @@
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useCallback } = React;
+const { useState } = React;
 
-// ═══════════════════════════════════════════════════════════════════
-// DATABASE — same data, richer structure for pipeline visibility
-// ═══════════════════════════════════════════════════════════════════
+// ─── DATA LAYER ─────────────────────────────────────────────────────
 
 const AGENTS = {
-  lisa: { name: "Lisa Park", initials: "LP", color: "#E8A87C" },
-  jordan: { name: "Jordan Blake", initials: "JB", color: "#8B7EC8" },
+  lisa: { id: "lisa", name: "Lisa Park", initials: "LP", color: "#E8A87C", role: "Senior HR Specialist", behavior: "Experienced. Catches KB errors. Verifies with HR leadership before responding." },
+  raj: { id: "raj", name: "Raj Patel", initials: "RP", color: "#8B7EC8", role: "HR Support Agent", behavior: "Newer agent. Sometimes trusts KB without verifying. Occasionally gives slightly different answers from Lisa." },
 };
 
-const ARTICLES = {
-  "art-1": { id: "art-1", title: "Annual Benefits Enrollment Guide", category: "Benefits", deflection: 23, content: "Open enrollment runs November 1-30 each year. Visit benefits.gusto.com to select your medical, dental, and vision plans. HSA contributions max at $3,650 for individual coverage. Dependent coverage maximum is $7,300." },
-  "art-2": { id: "art-2", title: "How to Request PTO", category: "Leave/PTO", deflection: 78, content: "Submit PTO requests via BambooHR at least 5 business days in advance. Manager approval required. Requests over 10 consecutive days need VP approval." },
-  "art-3": { id: "art-3", title: "How to View Your Pay Stub", category: "Compensation", deflection: 89, content: "Log into ADP Workforce Now → Pay → Pay Statements. Select the pay period to view details." },
-  "art-4": { id: "art-4", title: "Salary Adjustment Process", category: "Compensation", deflection: 62, content: "Submit requests through BambooHR → Compensation → Request Adjustment. Requires manager approval and VP sign-off for adjustments >10%." },
-};
-
-const TICKETS = [
-  { id: "WI-1192", title: "HSA contribution limit question", status: "Resolved", agent: "lisa", articleRef: "art-1", submitter: "Alex Chen",
-    conversation: [
-      { who: "Alex Chen", role: "user", text: "The benefits page says the HSA limit is $3,650 but I thought it went up?" },
-      { who: "AI", role: "ai", text: "Based on our benefits guide, HSA contributions max at $3,650 for individual coverage.", kbUsed: "art-1" },
-      { who: "Alex Chen", role: "user", text: "That doesn't sound right — my friend at another company said it went up for 2026." },
-      { who: "Lisa Park", role: "agent", text: "Good catch. The current HSA limit is $4,150 per IRS guidelines for 2026. The KB article still shows the old number." },
-    ],
-    agentNote: "KB article is outdated — still shows 2025 HSA limit.",
-    expectedFindings: [{ type: "wrong", subject: "HSA individual limit", articleSays: "$3,650", agentSays: "$4,150 (IRS 2026)", general: true }],
-  },
-  { id: "WI-1205", title: "What's the max HSA contribution?", status: "Resolved", agent: "jordan", articleRef: "art-1", submitter: "Priya Sharma",
-    conversation: [
-      { who: "Priya Sharma", role: "user", text: "I want to increase my HSA contribution. What's the max I can put in?" },
-      { who: "AI", role: "ai", text: "HSA contributions max at $3,650 for individual coverage.", kbUsed: "art-1" },
-      { who: "Priya Sharma", role: "user", text: "Are you sure? I saw on the IRS website it's higher now." },
-      { who: "Jordan Blake", role: "agent", text: "You're right — the 2026 IRS limit for individual HSA is $4,150. The number in our system hasn't been updated yet." },
-    ],
-    agentNote: null,
-    expectedFindings: [{ type: "wrong", subject: "HSA individual limit", articleSays: "$3,650", agentSays: "$4,150 (IRS 2026)", general: true }],
-  },
-  { id: "WI-1215", title: "HSA limit seems wrong in benefits portal", status: "Resolved", agent: "lisa", articleRef: "art-1", submitter: "Marcus Johnson",
-    conversation: [
-      { who: "Marcus Johnson", role: "user", text: "The benefits info says HSA max is $3,650 but I'm pretty sure that changed." },
-      { who: "AI", role: "ai", text: "Our benefits guide shows HSA contributions max at $3,650.", kbUsed: "art-1" },
-      { who: "Lisa Park", role: "agent", text: "Confirmed — the 2026 limit is $4,150 for individual, $8,300 for family. The KB is out of date." },
-    ],
-    agentNote: "Third ticket this month about the wrong HSA limit.",
-    expectedFindings: [{ type: "wrong", subject: "HSA individual limit", articleSays: "$3,650", agentSays: "$4,150 individual, $8,300 family (IRS 2026)", general: true }],
-  },
-  { id: "WI-1198", title: "Does company cover therapy sessions?", status: "Resolved", agent: "jordan", articleRef: "art-1", submitter: "Sam Rivera",
-    conversation: [
-      { who: "Sam Rivera", role: "user", text: "I heard we now get free therapy sessions through some app. Is that true?" },
-      { who: "AI", role: "ai", text: "I don't have specific information about therapy session benefits.", kbUsed: "art-1" },
-      { who: "Jordan Blake", role: "agent", text: "Yes! As of Q1 2026, we partnered with SpringHealth. You get 12 free therapy sessions per year. Download the SpringHealth app and sign up with your work email." },
-    ],
-    agentNote: "New SpringHealth benefit not documented anywhere in KB.",
-    expectedFindings: [{ type: "missing", subject: "SpringHealth therapy benefit", agentSays: "12 free sessions/year via SpringHealth", general: true }],
-  },
-  { id: "WI-1201", title: "PTO request rejected — wrong advance notice?", status: "Resolved", agent: "jordan", articleRef: "art-2", submitter: "Emily Tran",
-    conversation: [
-      { who: "Emily Tran", role: "user", text: "I submitted PTO 4 days in advance and it was rejected. But I thought the policy changed?" },
-      { who: "AI", role: "ai", text: "Requests must be submitted at least 5 business days in advance.", kbUsed: "art-2" },
-      { who: "Jordan Blake", role: "agent", text: "You're right — the policy was updated March 2026. Advance notice is now 3 business days, not 5." },
-    ],
-    agentNote: "Policy changed March 1. KB still shows old 5-day requirement.",
-    expectedFindings: [{ type: "wrong", subject: "PTO advance notice", articleSays: "5 business days", agentSays: "3 business days (March 2026)", general: true }],
-  },
-  { id: "WI-1230", title: "How far in advance for PTO?", status: "Resolved", agent: "lisa", articleRef: "art-2", submitter: "Kevin Park",
-    conversation: [
-      { who: "Kevin Park", role: "user", text: "How many days in advance do I need to submit PTO?" },
-      { who: "AI", role: "ai", text: "PTO requests must be submitted at least 5 business days in advance.", kbUsed: "art-2" },
-      { who: "Lisa Park", role: "agent", text: "The advance notice is now 2 business days as of the March update." },
-    ],
-    agentNote: null,
-    expectedFindings: [{ type: "wrong", subject: "PTO advance notice", articleSays: "5 business days", agentSays: "2 business days (March update)", general: true }],
-  },
-  { id: "WI-1235", title: "Can't find my pay stub", status: "Resolved", agent: "jordan", articleRef: "art-3", submitter: "Nina Chen",
-    conversation: [
-      { who: "Nina Chen", role: "user", text: "Where do I find my most recent pay stub?" },
-      { who: "AI", role: "ai", text: "Log into ADP Workforce Now → Pay → Pay Statements.", kbUsed: "art-3" },
-      { who: "Nina Chen", role: "user", text: "I can't log in. Password expired." },
-      { who: "Jordan Blake", role: "agent", text: "I've reset your ADP password. Once you're in, go to Pay → Pay Statements." },
-    ],
-    agentNote: null,
-    expectedFindings: [],
-  },
-  { id: "WI-1225", title: "How to set up 2FA for GitHub Enterprise?", status: "Resolved", agent: "jordan", articleRef: null, submitter: "Tomas Reyes",
-    conversation: [
-      { who: "Tomas Reyes", role: "user", text: "IT is requiring 2FA for GitHub Enterprise. How do I set it up?" },
-      { who: "AI", role: "ai", text: "I don't have a guide for GitHub Enterprise 2FA. Let me connect you with an agent." },
-      { who: "Jordan Blake", role: "agent", text: "Go to github.com/settings/security → Enable 2FA → Choose 'Authenticator app' → Scan QR with Okta Verify → Save recovery codes." },
-    ],
-    agentNote: "No KB article for this. Third person asking this week.",
-    expectedFindings: [{ type: "creation", subject: "GitHub 2FA setup", agentSays: "Step-by-step: settings/security → enable 2FA → authenticator app → Okta Verify → recovery codes", general: true }],
-  },
-  { id: "WI-1228", title: "GitHub 2FA setup help", status: "Resolved", agent: "lisa", articleRef: null, submitter: "Amy Liu",
-    conversation: [
-      { who: "Amy Liu", role: "user", text: "Need help setting up two-factor auth for GitHub." },
-      { who: "AI", role: "ai", text: "I don't have documentation on GitHub 2FA setup." },
-      { who: "Lisa Park", role: "agent", text: "Go to GitHub settings → Security → 2FA. Use Okta Verify to scan the QR code. Save your recovery codes. Takes 2 minutes." },
-    ],
-    agentNote: "Same as others — need a KB article.",
-    expectedFindings: [{ type: "creation", subject: "GitHub 2FA setup", agentSays: "GitHub settings → Security → 2FA → Okta Verify → save recovery codes. ~2 min.", general: true }],
-  },
+const KB_ARTICLES = [
+  { id: "kb-101", title: "Annual Benefits Enrollment Guide", queue: "HR", category: "Benefits", updated: "2025-09-01", deflection: 23, views: 342, content: "Open enrollment runs November 1-30 each year. Visit benefits.gusto.com to select your medical, dental, and vision plans. HSA contributions max at $3,650 for individual coverage. Dependent coverage max is $7,300.", issues: { wrong: "HSA limit is $3,650 (actual 2026: $4,150)", missing: "No mention of SpringHealth therapy benefit (12 sessions, added Q1 2026)" } },
+  { id: "kb-102", title: "How to Request PTO and Check Balance", queue: "HR", category: "Leave/PTO", updated: "2025-12-10", deflection: 44, views: 410, content: "Submit PTO requests via BambooHR at least 5 business days in advance. Manager approval required. Requests over 10 consecutive days need VP approval.", issues: { wrong: "Advance notice is 5 days (actual: 3 per March 2026 policy)" } },
+  { id: "kb-103", title: "Salary Adjustment Request Process", queue: "HR", category: "Compensation", updated: "2025-11-20", deflection: 62, views: 156, content: "Submit salary adjustment requests through BambooHR. Requires manager approval and VP sign-off for adjustments >10%.", issues: {} },
+  { id: "kb-104", title: "Tax Withholding Changes — W-4 Guide", queue: "HR", category: "Payroll", updated: "2026-01-15", deflection: 73, views: 89, content: "Update your W-4 through ADP Workforce Now. Changes take effect on the next full pay cycle. Processing takes 1-2 business days.", issues: {} },
+  { id: "kb-105", title: "How to View Your Pay Stub", queue: "HR", category: "Payroll", updated: "2026-02-01", deflection: 89, views: 67, content: "Log into ADP Workforce Now then Pay then Pay Statements. Direct deposit typically processes 1-2 business days before pay date.", issues: {} },
 ];
 
-// ═══════════════════════════════════════════════════════════════════
-// STYLES
-// ═══════════════════════════════════════════════════════════════════
+const TICKETS = [
+  { id: "WI-1192", title: "HSA contribution limit question", topic: "Benefits", status: "Resolved", created: "Mar 14", resolved: "Mar 14", agent: "lisa", kbRef: "kb-101", priority: "Low", messages: [
+    { from: "submitter", name: "Alex Chen", time: "Mar 14, 9:20 AM", text: "I'm trying to max out my HSA this year. The benefits page says the limit is $3,650 but I thought it went up. Can someone confirm?" },
+    { from: "ai", name: "AI Assistant", time: "Mar 14, 9:20 AM", text: "Based on our Benefits Enrollment Guide, the HSA contribution limit is $3,650 for individual coverage." },
+    { from: "submitter", name: "Alex Chen", time: "Mar 14, 9:22 AM", text: "That doesn't sound right. I saw the IRS announcement. Can a human check?" },
+    { from: "agent", name: "Lisa Park", time: "Mar 14, 10:45 AM", text: "Hi Alex — you're correct. The IRS updated HSA limits for 2026. The individual contribution limit is now $4,150, not $3,650. The knowledge base hasn't been updated yet. I've confirmed this with HR leadership." },
+  ], agentNotes: "KB article kb-101 has the wrong HSA limit. Says $3,650 but 2026 IRS limit is $4,150.", pipelineResult: { type: "wrong", subject: "HSA individual limit", articleSays: "$3,650", resolutionSays: "$4,150 (2026 IRS)", general: true, sourceMsg: "Lisa Park, Mar 14 10:45 AM" } },
 
-const C = { text: "#1a1d2e", sub: "#4B5064", muted: "#8B8FA3", border: "#E8E9ED", card: "#fff", bg: "#FAFAFA",
-  red: "#A32D2D", redBg: "#FCEBEB", amber: "#854F0B", amberBg: "#FAEEDA", green: "#3B6D11", greenBg: "#EAF3DE",
-  blue: "#185FA5", blueBg: "#E6F1FB", purple: "#534AB7", purpleBg: "#EEEDFE", teal: "#0F6E56", tealBg: "#E1F5EE",
-  gray: "#5F5E5A", grayBg: "#F1EFE8" };
-const badge = (c, bg) => ({ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600, background: bg, color: c, marginRight: 6 });
-const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginBottom: 12 };
-const stepBox = (active, done) => ({ padding: "10px 14px", borderRadius: 8, background: active ? C.blueBg : done ? C.greenBg : C.bg, border: `1px solid ${active ? C.blue : done ? C.green : C.border}`, opacity: !active && !done ? 0.5 : 1, transition: "all 0.3s" });
+  { id: "WI-1212", title: "What's the HSA max contribution?", topic: "Benefits", status: "Resolved", created: "Mar 19", resolved: "Mar 19", agent: "raj", kbRef: "kb-101", priority: "Low", messages: [
+    { from: "submitter", name: "Sam Torres", time: "Mar 19, 2:10 PM", text: "What's the maximum I can put into my HSA this year?" },
+    { from: "ai", name: "AI Assistant", time: "Mar 19, 2:10 PM", text: "The HSA contribution limit is $3,650 for individual coverage." },
+    { from: "submitter", name: "Sam Torres", time: "Mar 19, 2:12 PM", text: "A coworker told me it's higher now. Can you double-check?" },
+    { from: "agent", name: "Raj Patel", time: "Mar 19, 3:30 PM", text: "Let me look into this. I believe the 2026 limit for individual HSA is $3,850. Let me know if you need anything else." },
+  ], agentNotes: null, pipelineResult: { type: "wrong", subject: "HSA individual limit", articleSays: "$3,650", resolutionSays: "$3,850", general: true, sourceMsg: "Raj Patel, Mar 19 3:30 PM" } },
 
-// ═══════════════════════════════════════════════════════════════════
-// PIPELINE STEP RENDERERS
-// ═══════════════════════════════════════════════════════════════════
+  { id: "WI-1218", title: "HSA limit seems wrong in the portal", topic: "Benefits", status: "Resolved", created: "Mar 24", resolved: "Mar 24", agent: "lisa", kbRef: "kb-101", priority: "Medium", messages: [
+    { from: "submitter", name: "Jordan Blake", time: "Mar 24, 11:00 AM", text: "The benefits portal shows HSA limit as $3,650 but my tax advisor says it's $4,150 for 2026. Which is correct?" },
+    { from: "agent", name: "Lisa Park", time: "Mar 24, 11:30 AM", text: "Your tax advisor is correct. The 2026 IRS limit for individual HSA contributions is $4,150. Our portal hasn't been updated yet. Sorry for the confusion." },
+  ], agentNotes: "Third time this month. KB still shows $3,650. Really needs fixing.", pipelineResult: { type: "wrong", subject: "HSA individual limit", articleSays: "$3,650", resolutionSays: "$4,150 (2026 IRS)", general: true, sourceMsg: "Lisa Park, Mar 24 11:30 AM" } },
 
-function StepTrigger({ ticket }) {
-  return <div>
-    <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.7, marginBottom: 12 }}>
-      Ticket <strong>{ticket.id}</strong> was resolved by <strong>{AGENTS[ticket.agent].name}</strong>. This triggers the pipeline because a human had to intervene — the AI chat (using KB article) didn't resolve it alone.
+  { id: "WI-1198", title: "Does company cover therapy sessions?", topic: "Benefits", status: "Resolved", created: "Mar 18", resolved: "Mar 18", agent: "lisa", kbRef: "kb-101", priority: "Medium", messages: [
+    { from: "submitter", name: "Priya Shah", time: "Mar 18, 3:00 PM", text: "I heard we now get free therapy sessions through some app. Is that true? Can't find anything in the benefits guide." },
+    { from: "ai", name: "AI Assistant", time: "Mar 18, 3:00 PM", text: "I don't have information about free therapy sessions in our Benefits Enrollment Guide. Let me connect you with a specialist." },
+    { from: "agent", name: "Lisa Park", time: "Mar 18, 4:15 PM", text: "Yes! As of Q1 2026, all employees have 12 free therapy sessions per year through SpringHealth. Sign up at springhealth.com/company using your work email. This is a new benefit that hasn't been added to the guide yet." },
+  ], agentNotes: "SpringHealth benefit launched Q1 but isn't in the KB yet. Multiple people will ask.", pipelineResult: { type: "missing", topic: "SpringHealth therapy benefit", userAsked: "Free therapy sessions", agentProvided: "12 sessions/year through SpringHealth, sign up at springhealth.com/company", general: true, sourceMsg: "Lisa Park, Mar 18 4:15 PM" } },
+
+  { id: "WI-1210", title: "How many therapy sessions do we get?", topic: "Benefits", status: "Resolved", created: "Mar 22", resolved: "Mar 22", agent: "raj", kbRef: "kb-101", priority: "Low", messages: [
+    { from: "submitter", name: "Mike Torres", time: "Mar 22, 10:00 AM", text: "Someone mentioned we get free therapy. How many sessions and how do I sign up?" },
+    { from: "agent", name: "Raj Patel", time: "Mar 22, 11:20 AM", text: "Yes, we have 12 free therapy sessions per year through SpringHealth. Go to springhealth.com/company and sign up with your work email." },
+  ], agentNotes: null, pipelineResult: { type: "missing", topic: "SpringHealth therapy benefit", userAsked: "Therapy sessions count + signup", agentProvided: "12 sessions via SpringHealth at springhealth.com/company", general: true, sourceMsg: "Raj Patel, Mar 22 11:20 AM" } },
+
+  { id: "WI-1205", title: "PTO request rejected — wrong advance notice?", topic: "Leave/PTO", status: "Resolved", created: "Mar 20", resolved: "Mar 20", agent: "lisa", kbRef: "kb-102", priority: "High", messages: [
+    { from: "submitter", name: "Jordan Blake", time: "Mar 20, 8:30 AM", text: "I submitted PTO 4 days in advance and it got auto-rejected saying I need 5 days. But the policy changed?" },
+    { from: "ai", name: "AI Assistant", time: "Mar 20, 8:30 AM", text: "PTO requests must be submitted at least 5 business days in advance." },
+    { from: "submitter", name: "Jordan Blake", time: "Mar 20, 8:32 AM", text: "My manager says it's 3 days now. The AI is wrong." },
+    { from: "agent", name: "Lisa Park", time: "Mar 20, 9:15 AM", text: "Your manager is right. Advance notice was reduced to 3 business days effective March 1, 2026. I'll manually approve your request. The system hasn't been updated with the new policy yet." },
+  ], agentNotes: "PTO article still says 5 days. Policy changed to 3 days March 2026. VP threshold also changed 10 to 15 days.", pipelineResult: { type: "wrong", subject: "PTO advance notice period", articleSays: "5 business days", resolutionSays: "3 business days (March 2026 policy)", general: true, sourceMsg: "Lisa Park, Mar 20 9:15 AM" } },
+
+  { id: "WI-1220", title: "Checking my HSA contribution limit", topic: "Benefits", status: "Resolved", created: "Mar 26", resolved: "Mar 26", agent: "raj", kbRef: "kb-101", priority: "Low", messages: [
+    { from: "submitter", name: "Dana Kim", time: "Mar 26, 1:00 PM", text: "Can you tell me the HSA contribution limit for this year?" },
+    { from: "ai", name: "AI Assistant", time: "Mar 26, 1:00 PM", text: "The HSA contribution limit is $3,650 for individual coverage." },
+    { from: "submitter", name: "Dana Kim", time: "Mar 26, 1:02 PM", text: "Thanks, could a person confirm?" },
+    { from: "agent", name: "Raj Patel", time: "Mar 26, 2:00 PM", text: "I can confirm — the HSA individual contribution limit is $3,650. You can set up contributions at benefits.gusto.com." },
+  ], agentNotes: null, pipelineResult: null },
+
+  { id: "WI-1225", title: "How to set up 2FA for GitHub Enterprise", topic: "IT/Security", status: "Resolved", created: "Mar 25", resolved: "Mar 25", agent: "lisa", kbRef: null, priority: "Medium", messages: [
+    { from: "submitter", name: "Taylor Reeves", time: "Mar 25, 9:00 AM", text: "IT is requiring 2FA on GitHub. How do I set it up?" },
+    { from: "ai", name: "AI Assistant", time: "Mar 25, 9:00 AM", text: "I don't have a knowledge base article about GitHub 2FA setup. Let me connect you with support." },
+    { from: "agent", name: "Lisa Park", time: "Mar 25, 10:00 AM", text: "Go to github.com, then Settings, then Password and authentication, then Two-factor authentication, then Enable. Choose Authenticator app and scan the QR code with Google Authenticator or Authy. Save your backup codes somewhere secure." },
+  ], agentNotes: "No KB article for GitHub 2FA. Third person this week. We need to create one.", pipelineResult: { type: "creation", topic: "GitHub Enterprise 2FA setup", knowledge: "GitHub > Settings > Password and authentication > 2FA > Enable. Use authenticator app (Google Authenticator or Authy). Save backup codes securely.", general: true, sourceMsg: "Lisa Park, Mar 25 10:00 AM" } },
+
+  { id: "WI-1228", title: "GitHub 2FA setup help", topic: "IT/Security", status: "Resolved", created: "Mar 27", resolved: "Mar 27", agent: "raj", kbRef: null, priority: "Medium", messages: [
+    { from: "submitter", name: "Chris Moore", time: "Mar 27, 11:00 AM", text: "Need help with two-factor auth on GitHub. IT says it's mandatory." },
+    { from: "agent", name: "Raj Patel", time: "Mar 27, 12:30 PM", text: "Go to github.com, Settings, Password and authentication, Two-factor authentication. Click Enable, choose Authenticator app, scan QR code. Don't forget to save recovery codes." },
+  ], agentNotes: null, pipelineResult: { type: "creation", topic: "GitHub Enterprise 2FA setup", knowledge: "GitHub Settings > Password and authentication > 2FA. Authenticator app + save recovery codes.", general: true, sourceMsg: "Raj Patel, Mar 27 12:30 PM" } },
+
+  { id: "WI-1215", title: "W-4 update not reflecting on paycheck", topic: "Payroll", status: "Resolved", created: "Mar 23", resolved: "Mar 23", agent: "raj", kbRef: "kb-104", priority: "Low", messages: [
+    { from: "submitter", name: "Robin Lee", time: "Mar 23, 4:00 PM", text: "I updated my W-4 last week but my paycheck still has old withholding." },
+    { from: "ai", name: "AI Assistant", time: "Mar 23, 4:00 PM", text: "W-4 changes take effect on the next full pay cycle. Processing takes 1-2 business days." },
+    { from: "submitter", name: "Robin Lee", time: "Mar 23, 4:02 PM", text: "It's been 8 days though. Can someone check?" },
+    { from: "agent", name: "Raj Patel", time: "Mar 23, 4:45 PM", text: "Your W-4 update is in the system. It takes effect next pay cycle starting April 1. You'll see updated withholding on your April 15 paycheck." },
+  ], agentNotes: null, pipelineResult: null },
+
+  { id: "WI-1170", title: "Equipment request for remote employees", topic: "IT/Facilities", status: "Open", created: "Feb 10", resolved: null, agent: null, kbRef: null, priority: "Low", messages: [
+    { from: "submitter", name: "Pat Nguyen", time: "Feb 10, 3:00 PM", text: "I'm fully remote. How do I request a new monitor? The equipment form only works for office employees." },
+  ], agentNotes: null, pipelineResult: null },
+
+  { id: "WI-1175", title: "VPN certificate renewal", topic: "IT/Security", status: "Open", created: "Feb 18", resolved: null, agent: null, kbRef: null, priority: "Medium", messages: [
+    { from: "submitter", name: "Casey Rivera", time: "Feb 18, 9:00 AM", text: "My VPN certificate expires next week. No option to renew in the client. Where do I go?" },
+  ], agentNotes: null, pipelineResult: null },
+
+  { id: "WI-1232", title: "Bonus calculation seems incorrect", topic: "Compensation", status: "In Progress", created: "Mar 28", resolved: null, agent: "lisa", kbRef: "kb-103", priority: "High", messages: [
+    { from: "submitter", name: "Jordan Blake", time: "Mar 28, 9:15 AM", text: "My Q1 bonus was significantly less than expected. Can someone review?" },
+    { from: "agent", name: "Lisa Park", time: "Mar 28, 11:30 AM", text: "I'll pull up your comp details and compare against the Q1 bonus formula. Give me a day." },
+  ], agentNotes: null, pipelineResult: null },
+];
+
+// ─── PIPELINE ───────────────────────────────────────────────────────
+
+function runPipeline(tickets) {
+  const findings = [];
+  const skipped = [];
+  tickets.filter(t => t.status === "Resolved").forEach(t => {
+    if (!t.pipelineResult) {
+      if (t.kbRef) skipped.push({ ticket: t.id, reason: t.id === "WI-1220" ? "ECHO: Agent repeated wrong KB info — zero delta" : "No delta — response consistent with article", echo: t.id === "WI-1220" });
+      return;
+    }
+    findings.push({ ...t.pipelineResult, ticketId: t.id, agent: t.agent, kbRef: t.kbRef });
+  });
+  const groups = {};
+  findings.forEach(f => {
+    const key = f.type === "creation" ? `creation:${f.topic}` : `${f.type}:${f.kbRef}:${f.subject || f.topic}`;
+    if (!groups[key]) groups[key] = { type: f.type, subject: f.subject || f.topic, kbRef: f.kbRef, findings: [] };
+    groups[key].findings.push(f);
+  });
+  const outputs = [];
+  Object.values(groups).forEach(g => {
+    if (g.type === "wrong") {
+      const answers = [...new Set(g.findings.map(f => f.resolutionSays))];
+      if (answers.length > 1) outputs.push({ ...g, outputType: "conflict", answers, priority: 0 });
+      else if (g.findings.length >= 2) outputs.push({ ...g, outputType: "draft", priority: 1 });
+      else outputs.push({ ...g, outputType: "finding", priority: 3 });
+    } else if (g.type === "missing") {
+      outputs.push({ ...g, outputType: g.findings.length >= 2 ? "draft" : "finding", priority: g.findings.length >= 2 ? 1 : 3 });
+    } else if (g.type === "creation") {
+      outputs.push({ ...g, outputType: g.findings.length >= 2 ? "creation_draft" : "creation_finding", priority: g.findings.length >= 2 ? 2 : 3 });
+    }
+  });
+  return { findings, skipped, outputs: outputs.sort((a,b) => a.priority - b.priority), stale: tickets.filter(t => t.status === "Open") };
+}
+
+// ─── STYLES ─────────────────────────────────────────────────────────
+
+const C = { bg: "#FAFAFA", card: "#fff", bdr: "#E8E9ED", tx: "#1a1d2e", mu: "#8B8FA3", sub: "#4B5064", teal: "#0F6E56", tealBg: "#E1F5EE", red: "#A32D2D", redBg: "#FCEBEB", amber: "#854F0B", amberBg: "#FAEEDA", purple: "#534AB7", purpleBg: "#EEEDFE", blue: "#185FA5", blueBg: "#E6F1FB", green: "#3B6D11", greenBg: "#EAF3DE", gray: "#5F5E5A", grayBg: "#F1EFE8" };
+const B = (c) => ({ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 600, background: c + "15", color: c });
+const AV = (a) => ({ width: 28, height: 28, borderRadius: "50%", background: a.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", flexShrink: 0 });
+
+function Msg({ m }) {
+  const isAgent = m.from === "agent"; const isAI = m.from === "ai";
+  const bg = isAI ? C.purpleBg : isAgent ? C.tealBg : C.grayBg;
+  const nc = isAI ? C.purple : isAgent ? C.teal : C.gray;
+  return (
+    <div style={{ padding: 10, marginTop: 6, borderRadius: 8, background: bg }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: nc }}>{m.name}</span>
+        <span style={{ fontSize: 10, color: C.mu }}>{m.time}</span>
+        {isAI && <span style={B(C.purple)}>AI</span>}
+      </div>
+      <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.6 }}>{m.text}</div>
     </div>
-    <div style={{ ...card, padding: 12 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 8 }}>DATA CAPTURED</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        {[
-          ["Transcript", `${ticket.conversation.length} messages`],
-          ["KB article ref", ticket.articleRef ? `${ticket.articleRef} (linked)` : "null (no article)"],
-          ["Agent notes", ticket.agentNote ? `"${ticket.agentNote.substring(0, 50)}..."` : "None"],
-          ["Agent", AGENTS[ticket.agent].name],
-        ].map(([k, v], i) => (
-          <div key={i} style={{ padding: 8, background: C.bg, borderRadius: 6, fontSize: 12 }}>
-            <div style={{ color: C.muted, fontWeight: 600, fontSize: 11 }}>{k}</div>
-            <div style={{ color: C.sub, marginTop: 2 }}>{v}</div>
+  );
+}
+
+function Ticket({ t }) {
+  const [open, setOpen] = useState(false);
+  const ag = AGENTS[t.agent]; const art = KB_ARTICLES.find(a => a.id === t.kbRef);
+  const isEcho = t.id === "WI-1220";
+  return (
+    <div style={{ border: `1px solid ${isEcho ? C.amber + "60" : C.bdr}`, borderRadius: 8, marginBottom: 8, background: C.card }}>
+      <div onClick={() => setOpen(!open)} style={{ padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: C.mu, minWidth: 56 }}>{t.id}</span>
+        <span style={{ fontSize: 13, color: C.tx, flex: 1, fontWeight: 500, minWidth: 200 }}>{t.title}</span>
+        {ag && <div style={AV(ag)}>{ag.initials}</div>}
+        <span style={B(t.status === "Resolved" ? C.green : t.status === "Open" ? C.red : C.amber)}>{t.status}</span>
+        {t.kbRef ? <span style={B(C.blue)}>{t.kbRef}</span> : t.status === "Resolved" ? <span style={B(C.purple)}>No KB</span> : null}
+        {t.pipelineResult ? <span style={B(t.pipelineResult.type === "wrong" ? C.red : t.pipelineResult.type === "missing" ? C.amber : C.teal)}>{t.pipelineResult.type}</span> : t.status === "Resolved" && t.kbRef ? <span style={B(isEcho ? C.amber : C.gray)}>{isEcho ? "echo" : "no delta"}</span> : null}
+        <span style={{ fontSize: 14, color: C.mu, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>&#x25BE;</span>
+      </div>
+      {open && (
+        <div style={{ padding: "0 14px 14px", borderTop: `1px solid ${C.bdr}` }}>
+          <div style={{ display: "flex", gap: 12, padding: "8px 0", fontSize: 11, color: C.mu, flexWrap: "wrap" }}>
+            <span>Topic: {t.topic}</span><span>Created: {t.created}</span>
+            {ag && <span>Agent: {ag.name}</span>}{art && <span style={{ color: C.blue }}>KB: {art.title}</span>}
           </div>
-        ))}
-      </div>
-    </div>
-  </div>;
-}
-
-function StepRetrieve({ ticket }) {
-  const hasArticle = ticket.articleRef !== null;
-  const article = hasArticle ? ARTICLES[ticket.articleRef] : null;
-  return <div>
-    <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.7, marginBottom: 12 }}>
-      {hasArticle ? <>
-        Article <strong>{ticket.articleRef}</strong> is already linked on this ticket — AI chat referenced it during the conversation. This is a simple DB lookup, not a search.
-        <div style={{ padding: 10, background: C.blueBg, borderRadius: 6, marginTop: 8, fontSize: 12 }}>
-          <div style={{ fontWeight: 600, color: C.blue }}>{article.title}</div>
-          <div style={{ color: C.sub, marginTop: 4, lineHeight: 1.6 }}>"{article.content}"</div>
-          <div style={{ color: C.muted, marginTop: 4 }}>Deflection rate: {article.deflection}%</div>
-        </div>
-        <div style={{ marginTop: 8, padding: 8, background: C.tealBg, borderRadius: 6, fontSize: 12, color: C.teal }}>
-          → Entering <strong>correction path</strong>. Compare this article against the resolution.
-        </div>
-      </> : <>
-        <strong>No article linked on this ticket.</strong> AI chat didn't surface any KB article — either because none exists for this topic or search didn't match.
-        <div style={{ marginTop: 8, padding: 8, background: C.purpleBg, borderRadius: 6, fontSize: 12, color: C.purple }}>
-          → Entering <strong>creation path</strong>. Extract generalizable knowledge from the resolution to seed a new article.
-        </div>
-      </>}
-    </div>
-  </div>;
-}
-
-function StepCompare({ ticket }) {
-  const findings = ticket.expectedFindings;
-  const hasArticle = ticket.articleRef !== null;
-  const article = hasArticle ? ARTICLES[ticket.articleRef] : null;
-
-  if (findings.length === 0) {
-    return <div>
-      <div style={{ padding: 12, background: C.greenBg, borderRadius: 8, fontSize: 13, lineHeight: 1.7 }}>
-        <div style={{ fontWeight: 600, color: C.green, marginBottom: 4 }}>No delta detected</div>
-        <div style={{ color: C.sub }}>The LLM compared the agent's resolution to the KB article and found no contradictions and no new information. The agent's response was consistent with the article.</div>
-        <div style={{ marginTop: 8, padding: 8, background: C.amberBg, borderRadius: 6, fontSize: 12, color: C.amber }}>
-          <strong>Echo problem note:</strong> This could mean the article is correct, OR the agent echoed wrong info from the article without realizing it. The pipeline cannot distinguish these cases. Agent feedback would catch the latter.
-        </div>
-      </div>
-    </div>;
-  }
-
-  return <div>
-    <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.7, marginBottom: 12 }}>
-      {hasArticle ? "LLM compares the agent's resolution against the KB article content. One API call." : "LLM extracts generalizable knowledge from the agent's resolution. One API call."}
-    </div>
-
-    {hasArticle && <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 6 }}>LLM INPUT</div>}
-    {hasArticle && <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-      <div style={{ flex: 1, padding: 10, background: C.bg, borderRadius: 6, fontSize: 12, border: `1px solid ${C.border}` }}>
-        <div style={{ fontWeight: 600, color: C.muted, marginBottom: 4 }}>Article content</div>
-        <div style={{ color: C.sub, lineHeight: 1.5 }}>"{article.content}"</div>
-      </div>
-      <div style={{ flex: 1, padding: 10, background: C.bg, borderRadius: 6, fontSize: 12, border: `1px solid ${C.border}` }}>
-        <div style={{ fontWeight: 600, color: C.muted, marginBottom: 4 }}>Agent's resolution</div>
-        {ticket.conversation.filter(m => m.role === "agent").map((m, i) => (
-          <div key={i} style={{ color: C.sub, lineHeight: 1.5, marginBottom: 4 }}>"{m.text}"</div>
-        ))}
-      </div>
-    </div>}
-
-    <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 6 }}>LLM OUTPUT</div>
-    {findings.map((f, i) => (
-      <div key={i} style={{ padding: 12, background: f.type === "wrong" ? C.redBg : f.type === "missing" ? C.amberBg : C.purpleBg, borderRadius: 8, marginBottom: 8, fontSize: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-          <span style={badge(f.type === "wrong" ? C.red : f.type === "missing" ? C.amber : C.purple, f.type === "wrong" ? C.redBg : f.type === "missing" ? C.amberBg : C.purpleBg)}>
-            {f.type === "wrong" ? "Wrong info" : f.type === "missing" ? "Missing info" : "New knowledge"}
-          </span>
-          <span style={{ fontWeight: 600, color: C.text }}>{f.subject}</span>
-          <span style={badge(f.general ? C.green : C.gray, f.general ? C.greenBg : C.grayBg)}>{f.general ? "General" : "Specific"}</span>
-        </div>
-        {f.type === "wrong" && <div style={{ lineHeight: 1.7, color: C.sub }}>
-          <div>Article says: <span style={{ textDecoration: "line-through", color: C.red }}>"{f.articleSays}"</span></div>
-          <div>Agent says: <span style={{ color: C.teal, fontWeight: 600 }}>"{f.agentSays}"</span></div>
-        </div>}
-        {f.type === "missing" && <div style={{ lineHeight: 1.7, color: C.sub }}>
-          <div>Article: <span style={{ color: C.amber }}>no mention of this topic</span></div>
-          <div>Agent provided: <span style={{ color: C.teal, fontWeight: 600 }}>"{f.agentSays}"</span></div>
-        </div>}
-        {f.type === "creation" && <div style={{ lineHeight: 1.7, color: C.sub }}>
-          <div>Extracted knowledge: <span style={{ color: C.purple, fontWeight: 600 }}>"{f.agentSays}"</span></div>
-        </div>}
-        <div style={{ marginTop: 6, color: C.muted, fontSize: 11 }}>Source: {AGENTS[ticket.agent].name}'s response in {ticket.id}</div>
-      </div>
-    ))}
-  </div>;
-}
-
-function StepAccumulate({ ticket, accumulator }) {
-  const findings = ticket.expectedFindings;
-  if (findings.length === 0) {
-    return <div style={{ fontSize: 13, color: C.sub }}>No findings to accumulate. Ticket had no delta.</div>;
-  }
-
-  return <div>
-    <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.7, marginBottom: 12 }}>
-      Findings are grouped by article + subject. The system checks: have we seen this same correction from other tickets?
-    </div>
-    {findings.map((f, fi) => {
-      const key = `${ticket.articleRef || "new"}::${f.subject}`;
-      const acc = accumulator[key];
-      if (!acc) return null;
-      const isConflict = acc.conflict;
-      const thresholdMet = acc.count >= (f.type === "wrong" ? 2 : 3);
-
-      return <div key={fi} style={{ ...card, borderLeft: `3px solid ${isConflict ? C.red : thresholdMet ? C.teal : acc.count > 1 ? C.amber : C.border}`, borderRadius: 0, marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{f.subject}</span>
-          <span style={badge(isConflict ? C.red : thresholdMet ? C.teal : acc.count > 1 ? C.amber : C.gray,
-            isConflict ? C.redBg : thresholdMet ? C.tealBg : acc.count > 1 ? C.amberBg : C.grayBg)}>
-            {isConflict ? "CONFLICT" : thresholdMet ? "DRAFT READY" : acc.count > 1 ? "FLAGGED" : "LOGGED"}
-          </span>
-        </div>
-
-        <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 6 }}>CORROBORATION COUNT: {acc.count}</div>
-        {acc.tickets.map((t, ti) => (
-          <div key={ti} style={{ padding: 6, fontSize: 12, color: C.sub, borderLeft: `2px solid ${C.blue}`, paddingLeft: 10, marginBottom: 4 }}>
-            <strong>{t.ticketId}</strong> — {AGENTS[t.agent]?.name}: "{t.agentSays}"
-          </div>
-        ))}
-
-        {isConflict && (
-          <div style={{ marginTop: 10, padding: 10, background: C.redBg, borderRadius: 6, fontSize: 12 }}>
-            <div style={{ fontWeight: 600, color: C.red, marginBottom: 4 }}>CONFLICT DETECTED</div>
-            <div style={{ color: C.sub, lineHeight: 1.6 }}>
-              Agents gave <strong>different answers</strong> for the same question. {acc.tickets[acc.tickets.length-2]?.agentSays !== acc.tickets[acc.tickets.length-1]?.agentSays ? `"${acc.tickets[acc.tickets.length-2]?.agentSays}" vs "${acc.tickets[acc.tickets.length-1]?.agentSays}"` : ""}. System cannot auto-draft — human verification required.
+          {t.messages.map((m, i) => <Msg key={i} m={m} />)}
+          {t.agentNotes && (
+            <div style={{ padding: 10, marginTop: 6, borderLeft: `3px solid ${C.amber}`, borderRadius: 0, background: C.amberBg }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: C.amber, marginBottom: 4 }}>AGENT INTERNAL NOTE</div>
+              <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.5 }}>{t.agentNotes}</div>
             </div>
-          </div>
-        )}
-
-        {!isConflict && thresholdMet && (
-          <div style={{ marginTop: 10, padding: 10, background: C.tealBg, borderRadius: 6, fontSize: 12 }}>
-            <div style={{ fontWeight: 600, color: C.teal, marginBottom: 4 }}>THRESHOLD MET → generating draft</div>
-            <div style={{ color: C.sub }}>
-              {acc.count} independent tickets corroborate this finding. Confidence is high enough to generate a draft for admin review.
-              {f.type === "wrong" && " (Threshold for wrong info: 2 tickets)"}
-              {f.type === "missing" && " (Threshold for missing info: 3 tickets)"}
-              {f.type === "creation" && " (Threshold for new article: 2 tickets)"}
+          )}
+          {isEcho && (
+            <div style={{ padding: 10, marginTop: 6, background: C.redBg, borderLeft: `3px solid ${C.red}`, borderRadius: 0 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: C.red, marginBottom: 4 }}>ECHO PROBLEM</div>
+              <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.5 }}>Raj repeated the wrong $3,650 from the KB. The pipeline detects zero delta. This error is invisible. Only catchable via agent feedback channel or because other tickets (WI-1192, WI-1218) from Lisa independently contradicted the article.</div>
             </div>
-          </div>
-        )}
-
-        {!isConflict && !thresholdMet && (
-          <div style={{ marginTop: 10, padding: 10, background: acc.count > 1 ? C.amberBg : C.bg, borderRadius: 6, fontSize: 12, color: C.sub }}>
-            {acc.count === 1 ? "Waiting for more signal. Finding is visible to admin but no auto-draft yet." :
-              "Flagged for admin attention. Need more corroboration for auto-draft."}
-            <div style={{ marginTop: 4, color: C.muted, fontSize: 11 }}>
-              Admin can always act on a single finding if they recognize it as urgent (compliance, security, etc).
+          )}
+          {!t.pipelineResult && t.status === "Resolved" && t.kbRef && !isEcho && (
+            <div style={{ padding: 10, marginTop: 6, background: C.greenBg, borderLeft: `3px solid ${C.green}`, borderRadius: 0 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: C.green }}>NO DELTA: article is correct, agent response consistent</div>
             </div>
-          </div>
-        )}
-      </div>;
-    })}
-  </div>;
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// MAIN APP
-// ═══════════════════════════════════════════════════════════════════
+function Output({ o }) {
+  const [open, setOpen] = useState(false);
+  const art = KB_ARTICLES.find(a => a.id === o.kbRef);
+  const tc = { conflict: C.red, draft: C.teal, finding: C.blue, creation_draft: C.purple, creation_finding: C.purple };
+  const tl = { conflict: "CONFLICT ALERT", draft: "DRAFT READY", finding: "FINDING (below threshold)", creation_draft: "NEW ARTICLE DRAFT", creation_finding: "CREATION SIGNAL" };
+  const c = tc[o.outputType] || C.gray;
+  return (
+    <div style={{ border: `1px solid ${c}30`, borderLeft: `3px solid ${c}`, marginBottom: 8, background: C.card }}>
+      <div onClick={() => setOpen(!open)} style={{ padding: "12px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={B(c)}>{tl[o.outputType]}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: C.tx, flex: 1, minWidth: 150 }}>{o.subject}</span>
+        <span style={{ fontSize: 12, color: C.mu }}>{o.findings.length} ticket{o.findings.length !== 1 ? "s" : ""}</span>
+        {art && <span style={{ fontSize: 11, color: C.blue }}>{art.title}</span>}
+        <span style={{ fontSize: 14, color: C.mu, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>&#x25BE;</span>
+      </div>
+      {open && (
+        <div style={{ padding: "0 14px 14px", borderTop: `1px solid ${C.bdr}` }}>
+          {o.outputType === "conflict" && (
+            <div style={{ padding: 12, background: C.redBg, borderRadius: 8, marginTop: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: C.red, marginBottom: 6 }}>Agents gave different answers:</div>
+              {o.findings.map((f, i) => <div key={i} style={{ fontSize: 12, color: C.sub, marginBottom: 4 }}><strong>{AGENTS[f.agent]?.name}</strong> ({f.ticketId}): {f.resolutionSays}</div>)}
+              <div style={{ fontSize: 12, color: C.red, marginTop: 8, fontWeight: 600 }}>Cannot generate draft. Human verification needed.</div>
+            </div>
+          )}
+          {o.outputType === "draft" && o.type === "wrong" && (
+            <div style={{ display: "flex", gap: 10, marginTop: 8, marginBottom: 10 }}>
+              <div style={{ flex: 1, padding: 10, borderRadius: 8, background: C.redBg }}><div style={{ fontSize: 10, fontWeight: 600, color: C.red, marginBottom: 4 }}>CURRENT</div><div style={{ fontSize: 13, color: C.sub }}>{o.findings[0]?.articleSays}</div></div>
+              <div style={{ flex: 1, padding: 10, borderRadius: 8, background: C.greenBg }}><div style={{ fontSize: 10, fontWeight: 600, color: C.green, marginBottom: 4 }}>PROPOSED</div><div style={{ fontSize: 13, color: C.sub }}>{o.findings[0]?.resolutionSays}</div></div>
+            </div>
+          )}
+          {o.outputType === "draft" && o.type === "missing" && (
+            <div style={{ padding: 10, borderRadius: 8, background: C.amberBg, margin: "8px 0 10px" }}><div style={{ fontSize: 10, fontWeight: 600, color: C.amber, marginBottom: 4 }}>ADD TO ARTICLE</div><div style={{ fontSize: 13, color: C.sub }}>{o.findings[0]?.agentProvided}</div></div>
+          )}
+          {o.outputType === "creation_draft" && (
+            <div style={{ padding: 10, borderRadius: 8, background: C.purpleBg, margin: "8px 0 10px" }}><div style={{ fontSize: 10, fontWeight: 600, color: C.purple, marginBottom: 4 }}>PROPOSED NEW ARTICLE</div><div style={{ fontSize: 13, fontWeight: 600, color: C.tx, marginBottom: 4 }}>How to set up 2FA for GitHub Enterprise</div><div style={{ fontSize: 12, color: C.sub, lineHeight: 1.6 }}>{o.findings[0]?.knowledge}</div></div>
+          )}
+          <div style={{ fontSize: 11, fontWeight: 600, color: C.mu, marginBottom: 6, marginTop: 8 }}>SOURCE EVIDENCE</div>
+          {o.findings.map((f, i) => (
+            <div key={i} style={{ padding: 8, background: C.grayBg, borderRadius: 6, marginBottom: 4 }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 2 }}>
+                <span style={B(C.blue)}>{f.ticketId}</span><span style={{ fontSize: 12, fontWeight: 600, color: C.tx }}>{AGENTS[f.agent]?.name}</span><span style={B(f.general ? C.green : C.gray)}>{f.general ? "General" : "Specific"}</span>
+              </div>
+              <div style={{ fontSize: 12, color: C.mu }}>{f.sourceMsg}</div>
+            </div>
+          ))}
+          {(o.outputType === "draft" || o.outputType === "creation_draft") && (
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <button style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: C.tx, color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{o.outputType === "creation_draft" ? "Create article" : "Approve & publish"}</button>
+              <button style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${C.bdr}`, background: C.card, color: C.sub, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Edit draft</button>
+              <button style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${C.bdr}`, background: C.card, color: C.red, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Dismiss</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
-const STEPS = ["Trigger", "Retrieve article", "LLM compare", "Accumulate"];
+// ─── APP ─────────────────────────────────────────────────────────────
 
 function App() {
-  const [processedIds, setProcessedIds] = useState([]);
-  const [activeTicketIdx, setActiveTicketIdx] = useState(null);
-  const [activeStep, setActiveStep] = useState(0);
-  const [accumulator, setAccumulator] = useState({});
+  const [tab, setTab] = useState("pipeline");
+  const [hasRun, setHasRun] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [step, setStep] = useState(0);
+  const [results, setResults] = useState(null);
 
-  const processTicket = useCallback((idx) => {
-    setActiveTicketIdx(idx);
-    setActiveStep(0);
-  }, []);
+  const run = () => { setRunning(true); setStep(1); const iv = setInterval(() => { setStep(s => { if (s >= 5) { clearInterval(iv); setRunning(false); setHasRun(true); setResults(runPipeline(TICKETS)); return 5; } return s + 1; }); }, 700); };
 
-  const advanceStep = useCallback(() => {
-    if (activeStep < STEPS.length - 1) {
-      const nextStep = activeStep + 1;
-      setActiveStep(nextStep);
-
-      // When reaching accumulate step, actually add to accumulator
-      if (nextStep === 3) {
-        const ticket = TICKETS[activeTicketIdx];
-        setAccumulator(prev => {
-          const next = { ...prev };
-          ticket.expectedFindings.forEach(f => {
-            const key = `${ticket.articleRef || "new"}::${f.subject}`;
-            if (!next[key]) {
-              next[key] = { subject: f.subject, type: f.type, articleId: ticket.articleRef, count: 0, tickets: [], conflict: false, values: [] };
-            }
-            next[key].count += 1;
-            next[key].tickets.push({ ticketId: ticket.id, agent: ticket.agent, agentSays: f.agentSays });
-            next[key].values.push(f.agentSays);
-            // Conflict detection: if values differ
-            const unique = [...new Set(next[key].values)];
-            if (unique.length > 1 && next[key].count >= 2) {
-              next[key].conflict = true;
-            }
-          });
-          return next;
-        });
-        // Mark as processed
-        setProcessedIds(prev => [...prev, TICKETS[activeTicketIdx].id]);
-      }
-    }
-  }, [activeStep, activeTicketIdx]);
-
-  const finishTicket = useCallback(() => {
-    setActiveTicketIdx(null);
-    setActiveStep(0);
-  }, []);
-
-  const activeTicket = activeTicketIdx !== null ? TICKETS[activeTicketIdx] : null;
+  const resolved = TICKETS.filter(t => t.status === "Resolved").length;
+  const withDelta = TICKETS.filter(t => t.pipelineResult).length;
 
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "'Nunito Sans', system-ui, sans-serif", background: C.bg, overflow: "hidden" }}>
-      <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-
-      {/* LEFT: Ticket queue */}
-      <div style={{ width: 300, background: C.card, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", flexShrink: 0 }}>
-        <div style={{ padding: "16px 16px 12px" }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Resolved ticket queue</div>
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{TICKETS.length} resolved tickets to process</div>
-          <div style={{ fontSize: 12, color: C.teal, marginTop: 2 }}>{processedIds.length} processed · {TICKETS.length - processedIds.length} remaining</div>
+    <div style={{ fontFamily: "'Nunito Sans', system-ui, sans-serif", background: C.bg, minHeight: "100vh", padding: "20px 24px" }}>
+      <div style={{ maxWidth: 960, margin: "0 auto" }}>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: C.mu, textTransform: "uppercase", letterSpacing: "0.04em" }}>Resolution drafts prototype</div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: C.tx, margin: "4px 0" }}>Nightly batch pipeline simulation</h1>
+          <div style={{ fontSize: 13, color: C.mu }}>{TICKETS.length} tickets, {resolved} resolved, 2 agents, {KB_ARTICLES.length} KB articles</div>
         </div>
-        <div style={{ flex: 1, overflow: "auto", padding: "0 8px 8px" }}>
-          {TICKETS.map((t, idx) => {
-            const isActive = activeTicketIdx === idx;
-            const isDone = processedIds.includes(t.id);
-            const hasFindings = t.expectedFindings.length > 0;
-            return (
-              <div key={t.id} onClick={() => !isDone && !isActive && processTicket(idx)} style={{
-                padding: "10px 12px", borderRadius: 8, marginBottom: 4, cursor: isDone ? "default" : "pointer",
-                background: isActive ? C.blueBg : isDone ? C.greenBg : C.card,
-                border: `1px solid ${isActive ? C.blue : isDone ? C.green : C.border}`,
-                opacity: isDone && !isActive ? 0.7 : 1, transition: "all 0.2s"
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 11, color: C.muted }}>{t.id}</span>
-                  {isDone && <span style={badge(C.green, C.greenBg)}>done</span>}
-                  {isActive && <span style={badge(C.blue, C.blueBg)}>processing</span>}
-                  {!hasFindings && isDone && <span style={{ fontSize: 10, color: C.muted }}>no delta</span>}
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginTop: 4 }}>{t.title}</div>
-                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-                  {AGENTS[t.agent].name} · {t.articleRef ? `KB: ${t.articleRef}` : "No KB article"}
-                </div>
-              </div>
-            );
-          })}
+
+        <div style={{ display: "flex", gap: 4, marginBottom: 16, borderBottom: `1px solid ${C.bdr}`, paddingBottom: 4 }}>
+          {[["pipeline","Pipeline"],["tickets",`Tickets (${TICKETS.length})`],["articles",`KB Articles (${KB_ARTICLES.length})`],["agents","Agents (2)"]].map(([id,l]) => (
+            <button key={id} onClick={() => setTab(id)} style={{ padding: "8px 16px", borderRadius: "6px 6px 0 0", border: "none", background: tab===id?C.card:"transparent", borderBottom: tab===id?`2px solid ${C.tx}`:"2px solid transparent", color: tab===id?C.tx:C.mu, fontSize: 13, fontWeight: tab===id?600:400, cursor: "pointer", fontFamily: "inherit" }}>{l}</button>
+          ))}
         </div>
-      </div>
 
-      {/* CENTER: Pipeline steps */}
-      <div style={{ flex: 1, overflow: "auto", padding: "20px 24px" }}>
-        {!activeTicket && (
-          <div style={{ textAlign: "center", padding: "80px 40px" }}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: C.text, marginBottom: 8 }}>Resolution drafts pipeline simulator</div>
-            <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.7, maxWidth: 500, margin: "0 auto" }}>
-              Click a ticket on the left to process it through the pipeline step by step. You'll see exactly what the system does at each stage — the data it reads, the decisions it makes, and how findings accumulate across tickets.
-            </div>
-            <div style={{ fontSize: 13, color: C.muted, marginTop: 20 }}>Process tickets in order to see the accumulation logic build up.</div>
-          </div>
-        )}
-
-        {activeTicket && (
+        {tab === "pipeline" && (
           <div>
-            {/* Ticket header */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <div style={{ width: 32, height: 32, borderRadius: "50%", background: AGENTS[activeTicket.agent].color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff" }}>{AGENTS[activeTicket.agent].initials}</div>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{activeTicket.id}: {activeTicket.title}</div>
-                <div style={{ fontSize: 12, color: C.muted }}>Resolved by {AGENTS[activeTicket.agent].name} · Submitter: {activeTicket.submitter}</div>
+            {!hasRun && !running && (
+              <div style={{ textAlign: "center", padding: 40 }}>
+                <div style={{ fontSize: 15, color: C.sub, marginBottom: 16 }}>Run the nightly batch to process {resolved} resolved tickets through the pipeline.</div>
+                <button onClick={run} style={{ padding: "12px 32px", borderRadius: 8, border: "none", background: C.tx, color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Run nightly batch</button>
               </div>
-            </div>
-
-            {/* Conversation (always visible) */}
-            <div style={{ ...card, marginBottom: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 10 }}>TICKET CONVERSATION</div>
-              {activeTicket.conversation.map((m, i) => (
-                <div key={i} style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: m.role === "ai" ? C.blueBg : m.role === "agent" ? AGENTS[activeTicket.agent].color : C.grayBg,
-                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700,
-                    color: m.role === "ai" ? C.blue : m.role === "agent" ? "#fff" : C.gray, flexShrink: 0 }}>
-                    {m.role === "ai" ? "AI" : m.role === "agent" ? AGENTS[activeTicket.agent].initials : m.who.charAt(0)}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{m.who} <span style={{ fontWeight: 400, color: C.muted }}>{m.role === "ai" ? "(AI chat)" : m.role === "agent" ? "(agent)" : "(submitter)"}</span></div>
-                    <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.6, marginTop: 2, whiteSpace: "pre-wrap" }}>{m.text}</div>
-                    {m.kbUsed && <div style={{ fontSize: 10, marginTop: 4, padding: "2px 6px", background: C.blueBg, borderRadius: 3, color: C.blue, display: "inline-block" }}>Referenced: {m.kbUsed}</div>}
-                  </div>
-                </div>
-              ))}
-              {activeTicket.agentNote && (
-                <div style={{ padding: 8, background: C.amberBg, borderRadius: 6, fontSize: 12, marginTop: 4 }}>
-                  <span style={{ fontWeight: 600, color: C.amber }}>Agent note:</span> <span style={{ color: C.sub }}>{activeTicket.agentNote}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Step indicators */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-              {STEPS.map((s, i) => (
-                <div key={i} style={stepBox(i === activeStep, i < activeStep)}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: i === activeStep ? C.blue : i < activeStep ? C.green : C.muted }}>Step {i + 1}</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: i === activeStep ? C.blue : i < activeStep ? C.green : C.muted }}>{s}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Active step content */}
-            <div style={{ ...card, borderLeft: `3px solid ${activeStep < 3 ? C.blue : C.teal}`, borderRadius: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 10 }}>
-                Step {activeStep + 1}: {STEPS[activeStep]}
-              </div>
-              {activeStep === 0 && <StepTrigger ticket={activeTicket} />}
-              {activeStep === 1 && <StepRetrieve ticket={activeTicket} />}
-              {activeStep === 2 && <StepCompare ticket={activeTicket} />}
-              {activeStep === 3 && <StepAccumulate ticket={activeTicket} accumulator={accumulator} />}
-            </div>
-
-            {/* Controls */}
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              {activeStep < STEPS.length - 1 && (
-                <button onClick={advanceStep} style={{ padding: "8px 20px", borderRadius: 6, background: C.blue, color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                  Next step →
-                </button>
-              )}
-              {activeStep === STEPS.length - 1 && (
-                <button onClick={finishTicket} style={{ padding: "8px 20px", borderRadius: 6, background: C.teal, color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                  Done — process next ticket
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* RIGHT: Accumulator state */}
-      <div style={{ width: 280, background: C.card, borderLeft: `1px solid ${C.border}`, display: "flex", flexDirection: "column", flexShrink: 0, overflow: "auto" }}>
-        <div style={{ padding: "16px 16px 12px" }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Accumulator state</div>
-          <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Findings grouped by article + subject</div>
-        </div>
-        <div style={{ flex: 1, overflow: "auto", padding: "0 12px 12px" }}>
-          {Object.keys(accumulator).length === 0 && (
-            <div style={{ fontSize: 12, color: C.muted, padding: 16, textAlign: "center" }}>Process tickets to see findings accumulate here.</div>
-          )}
-          {Object.entries(accumulator).map(([key, acc]) => {
-            const thresholdNeeded = acc.type === "wrong" ? 2 : 3;
-            const thresholdMet = !acc.conflict && acc.count >= thresholdNeeded;
-            return (
-              <div key={key} style={{
-                padding: 10, borderRadius: 6, marginBottom: 8,
-                background: acc.conflict ? C.redBg : thresholdMet ? C.tealBg : acc.count > 1 ? C.amberBg : C.bg,
-                border: `1px solid ${acc.conflict ? C.red+"30" : thresholdMet ? C.teal+"30" : C.border}`,
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{acc.subject}</span>
-                </div>
-                <div style={{ display: "flex", gap: 4, marginBottom: 6, flexWrap: "wrap" }}>
-                  <span style={badge(acc.type === "wrong" ? C.red : acc.type === "missing" ? C.amber : C.purple,
-                    acc.type === "wrong" ? C.redBg : acc.type === "missing" ? C.amberBg : C.purpleBg)}>
-                    {acc.type}
-                  </span>
-                  <span style={badge(
-                    acc.conflict ? C.red : thresholdMet ? C.teal : acc.count > 1 ? C.amber : C.gray,
-                    acc.conflict ? C.redBg : thresholdMet ? C.tealBg : acc.count > 1 ? C.amberBg : C.grayBg
-                  )}>
-                    {acc.conflict ? "CONFLICT" : thresholdMet ? "DRAFT READY" : acc.count > 1 ? "FLAGGED" : "LOGGED"}
-                  </span>
-                </div>
-
-                {/* Visual threshold meter */}
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                  <div style={{ flex: 1, height: 6, background: C.border, borderRadius: 3, overflow: "hidden" }}>
-                    <div style={{ width: `${Math.min((acc.count / thresholdNeeded) * 100, 100)}%`, height: "100%", background: acc.conflict ? C.red : thresholdMet ? C.teal : C.amber, borderRadius: 3, transition: "width 0.5s" }} />
-                  </div>
-                  <span style={{ fontSize: 11, color: C.muted, whiteSpace: "nowrap" }}>{acc.count}/{thresholdNeeded}</span>
-                </div>
-
-                {acc.tickets.map((t, i) => (
-                  <div key={i} style={{ fontSize: 11, color: C.sub, padding: "2px 0", borderBottom: i < acc.tickets.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                    {t.ticketId} · {AGENTS[t.agent]?.name}
+            )}
+            {(running || hasRun) && (
+              <div style={{ marginBottom: 20 }}>
+                {[
+                  ["Collecting resolved tickets", `${resolved} resolved by human agents`, C.gray],
+                  ["Retrieving linked KB articles", `${TICKETS.filter(t=>t.status==="Resolved"&&t.kbRef).length} with KB link, ${TICKETS.filter(t=>t.status==="Resolved"&&!t.kbRef).length} creation path`, C.purple],
+                  ["Running LLM comparison", `${withDelta} deltas found, ${resolved - withDelta} no delta (1 is echo problem)`, C.teal],
+                  ["Accumulating findings + conflict check", "Grouping by subject, checking agent agreement", C.amber],
+                  ["Generating outputs", "Drafts, conflicts, creation proposals, stale alerts", C.green],
+                ].map(([l,d,c], i) => (
+                  <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 10, opacity: step > i ? 1 : step === i ? 0.6 : 0.25, transition: "opacity 0.4s" }}>
+                    <div style={{ width: 22, height: 22, borderRadius: "50%", background: step>i?c+"20":C.grayBg, border: `1.5px solid ${step>i?c:C.bdr}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: step>i?c:C.mu, flexShrink: 0 }}>{step>i?"✓":i+1}</div>
+                    <div><div style={{ fontSize: 14, fontWeight: 600, color: step>i?C.tx:C.mu }}>{l}</div><div style={{ fontSize: 12, color: C.mu }}>{d}</div></div>
                   </div>
                 ))}
-
-                {acc.conflict && (
-                  <div style={{ marginTop: 6, fontSize: 11, color: C.red, fontWeight: 600 }}>
-                    Agents disagree — no draft possible
+              </div>
+            )}
+            {hasRun && results && (
+              <div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 16 }}>
+                  {[
+                    [results.outputs.filter(o=>o.outputType==="draft").length, "Correction drafts", C.teal],
+                    [results.outputs.filter(o=>o.outputType==="conflict").length, "Conflict alerts", C.red],
+                    [results.outputs.filter(o=>o.outputType==="creation_draft").length, "New article drafts", C.purple],
+                    [results.outputs.filter(o=>o.outputType==="finding"||o.outputType==="creation_finding").length, "Below threshold", C.blue],
+                    [results.stale.length, "Stale alerts", C.amber],
+                  ].map(([n,l,c],i) => (
+                    <div key={i} style={{ padding: 14, background: C.card, border: `1px solid ${C.bdr}`, borderRadius: 8, textAlign: "center" }}>
+                      <div style={{ fontSize: 26, fontWeight: 700, color: n>0?c:C.mu }}>{n}</div>
+                      <div style={{ fontSize: 11, color: C.mu }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ padding: "10px 14px", background: C.amberBg, borderLeft: `3px solid ${C.amber}`, marginBottom: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: C.amber, marginBottom: 2 }}>BLIND SPOT: ECHO PROBLEM</div>
+                  <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.6 }}>WI-1220: Raj Patel repeated wrong $3,650 from KB. Pipeline saw zero delta. Error invisible without agent feedback channel.</div>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.tx, marginBottom: 8 }}>Pipeline outputs</div>
+                {results.outputs.map((o,i) => <Output key={i} o={o} />)}
+                {results.stale.length > 0 && (
+                  <div style={{ marginTop: 16 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.tx, marginBottom: 8 }}>Stale ticket alerts</div>
+                    {results.stale.map(t => (
+                      <div key={t.id} style={{ padding: 12, background: C.amberBg, borderLeft: `3px solid ${C.amber}`, marginBottom: 6 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={B(C.red)}>STALE</span><span style={{ fontSize: 13, fontWeight: 600, color: C.tx }}>{t.id}: {t.title}</span></div>
+                        <div style={{ fontSize: 12, color: C.mu, marginTop: 4 }}>Open since {t.created}. No resolution. No KB article. Topic: {t.topic}.</div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-            );
-          })}
-        </div>
+            )}
+          </div>
+        )}
 
-        {/* Legend */}
-        <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.muted }}>
-          <div style={{ fontWeight: 600, marginBottom: 6, color: C.sub }}>Pipeline logic</div>
-          <div style={{ marginBottom: 4 }}>Wrong info threshold: 2 tickets</div>
-          <div style={{ marginBottom: 4 }}>Missing info threshold: 3 tickets</div>
-          <div style={{ marginBottom: 4 }}>Creation threshold: 2 tickets</div>
-          <div style={{ marginBottom: 4 }}>Conflict: agents give different answers</div>
-          <div>All findings visible to admin from ticket 1</div>
-        </div>
+        {tab === "tickets" && (
+          <div>
+            <div style={{ fontSize: 13, color: C.mu, marginBottom: 12 }}>Click any ticket to see the full conversation, AI attempt, agent resolution, and pipeline result.</div>
+            {TICKETS.map(t => <Ticket key={t.id} t={t} />)}
+          </div>
+        )}
+
+        {tab === "articles" && (
+          <div>
+            {KB_ARTICLES.map(a => (
+              <div key={a.id} style={{ border: `1px solid ${C.bdr}`, borderRadius: 8, padding: 16, marginBottom: 10, background: C.card }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                  <span style={B(C.blue)}>{a.id}</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: C.tx, flex: 1 }}>{a.title}</span>
+                  <span style={{ fontSize: 12, color: C.mu }}>{a.category}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: a.deflection<40?C.red:a.deflection<70?C.amber:C.green }}>{a.deflection}%</span>
+                </div>
+                <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.6, padding: 12, background: C.grayBg, borderRadius: 6, marginBottom: 8 }}>{a.content}</div>
+                <div style={{ display: "flex", gap: 16, fontSize: 12, color: C.mu }}><span>Updated: {a.updated}</span><span>Views: {a.views}/mo</span></div>
+                {(a.issues.wrong || a.issues.missing) && (
+                  <div style={{ marginTop: 8, padding: 10, background: C.redBg, borderRadius: 6 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: C.red, marginBottom: 4 }}>KNOWN ISSUES</div>
+                    {a.issues.wrong && <div style={{ fontSize: 12, color: C.sub }}>Wrong: {a.issues.wrong}</div>}
+                    {a.issues.missing && <div style={{ fontSize: 12, color: C.sub }}>Missing: {a.issues.missing}</div>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "agents" && (
+          <div style={{ display: "flex", gap: 16 }}>
+            {Object.values(AGENTS).map(a => {
+              const at = TICKETS.filter(t => t.agent === a.id);
+              const wf = at.filter(t => t.pipelineResult);
+              const echo = at.filter(t => t.status === "Resolved" && !t.pipelineResult && t.kbRef);
+              return (
+                <div key={a.id} style={{ flex: 1, border: `1px solid ${C.bdr}`, borderRadius: 8, padding: 20, background: C.card }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                    <div style={{ ...AV(a), width: 40, height: 40, fontSize: 14 }}>{a.initials}</div>
+                    <div><div style={{ fontSize: 15, fontWeight: 700, color: C.tx }}>{a.name}</div><div style={{ fontSize: 12, color: C.mu }}>{a.role}</div></div>
+                  </div>
+                  <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.6, marginBottom: 12, padding: 10, background: C.grayBg, borderRadius: 6 }}>{a.behavior}</div>
+                  <div style={{ fontSize: 12, color: C.mu, lineHeight: 1.8 }}>
+                    <div><strong style={{ color: C.tx }}>{at.length}</strong> tickets handled</div>
+                    <div><strong style={{ color: C.teal }}>{wf.length}</strong> produced findings</div>
+                    <div><strong style={{ color: echo.length>0?C.amber:C.green }}>{echo.length}</strong> no delta {echo.length>0?"(includes echo risk)":"(correct articles)"}</div>
+                  </div>
+                  {echo.length > 0 && (
+                    <div style={{ marginTop: 8, padding: 8, background: C.amberBg, borderRadius: 6, fontSize: 12, color: C.amber }}>
+                      {echo.map(t => t.id).join(", ")} — response matched KB. If KB was wrong, agent echoed the error.
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-ReactDOM.render(React.createElement(App), document.getElementById("root"));
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
 </html>
