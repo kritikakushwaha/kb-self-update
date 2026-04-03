@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resolution Drafts — Pipeline Simulator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>* { margin: 0; padding: 0; box-sizing: border-box; } body { font-family: 'Nunito Sans', system-ui, sans-serif; }</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useCallback } = React;
+
+// ═══════════════════════════════════════════════════════════════════
+// DATABASE — same data, richer structure for pipeline visibility
+// ═══════════════════════════════════════════════════════════════════
+
+const AGENTS = {
+  lisa: { name: "Lisa Park", initials: "LP", color: "#E8A87C" },
+  jordan: { name: "Jordan Blake", initials: "JB", color: "#8B7EC8" },
+};
+
+const ARTICLES = {
+  "art-1": { id: "art-1", title: "Annual Benefits Enrollment Guide", category: "Benefits", deflection: 23, content: "Open enrollment runs November 1-30 each year. Visit benefits.gusto.com to select your medical, dental, and vision plans. HSA contributions max at $3,650 for individual coverage. Dependent coverage maximum is $7,300." },
+  "art-2": { id: "art-2", title: "How to Request PTO", category: "Leave/PTO", deflection: 78, content: "Submit PTO requests via BambooHR at least 5 business days in advance. Manager approval required. Requests over 10 consecutive days need VP approval." },
+  "art-3": { id: "art-3", title: "How to View Your Pay Stub", category: "Compensation", deflection: 89, content: "Log into ADP Workforce Now → Pay → Pay Statements. Select the pay period to view details." },
+  "art-4": { id: "art-4", title: "Salary Adjustment Process", category: "Compensation", deflection: 62, content: "Submit requests through BambooHR → Compensation → Request Adjustment. Requires manager approval and VP sign-off for adjustments >10%." },
+};
+
+const TICKETS = [
+  { id: "WI-1192", title: "HSA contribution limit question", status: "Resolved", agent: "lisa", articleRef: "art-1", submitter: "Alex Chen",
+    conversation: [
+      { who: "Alex Chen", role: "user", text: "The benefits page says the HSA limit is $3,650 but I thought it went up?" },
+      { who: "AI", role: "ai", text: "Based on our benefits guide, HSA contributions max at $3,650 for individual coverage.", kbUsed: "art-1" },
+      { who: "Alex Chen", role: "user", text: "That doesn't sound right — my friend at another company said it went up for 2026." },
+      { who: "Lisa Park", role: "agent", text: "Good catch. The current HSA limit is $4,150 per IRS guidelines for 2026. The KB article still shows the old number." },
+    ],
+    agentNote: "KB article is outdated — still shows 2025 HSA limit.",
+    expectedFindings: [{ type: "wrong", subject: "HSA individual limit", articleSays: "$3,650", agentSays: "$4,150 (IRS 2026)", general: true }],
+  },
+  { id: "WI-1205", title: "What's the max HSA contribution?", status: "Resolved", agent: "jordan", articleRef: "art-1", submitter: "Priya Sharma",
+    conversation: [
+      { who: "Priya Sharma", role: "user", text: "I want to increase my HSA contribution. What's the max I can put in?" },
+      { who: "AI", role: "ai", text: "HSA contributions max at $3,650 for individual coverage.", kbUsed: "art-1" },
+      { who: "Priya Sharma", role: "user", text: "Are you sure? I saw on the IRS website it's higher now." },
+      { who: "Jordan Blake", role: "agent", text: "You're right — the 2026 IRS limit for individual HSA is $4,150. The number in our system hasn't been updated yet." },
+    ],
+    agentNote: null,
+    expectedFindings: [{ type: "wrong", subject: "HSA individual limit", articleSays: "$3,650", agentSays: "$4,150 (IRS 2026)", general: true }],
+  },
+  { id: "WI-1215", title: "HSA limit seems wrong in benefits portal", status: "Resolved", agent: "lisa", articleRef: "art-1", submitter: "Marcus Johnson",
+    conversation: [
+      { who: "Marcus Johnson", role: "user", text: "The benefits info says HSA max is $3,650 but I'm pretty sure that changed." },
+      { who: "AI", role: "ai", text: "Our benefits guide shows HSA contributions max at $3,650.", kbUsed: "art-1" },
+      { who: "Lisa Park", role: "agent", text: "Confirmed — the 2026 limit is $4,150 for individual, $8,300 for family. The KB is out of date." },
+    ],
+    agentNote: "Third ticket this month about the wrong HSA limit.",
+    expectedFindings: [{ type: "wrong", subject: "HSA individual limit", articleSays: "$3,650", agentSays: "$4,150 individual, $8,300 family (IRS 2026)", general: true }],
+  },
+  { id: "WI-1198", title: "Does company cover therapy sessions?", status: "Resolved", agent: "jordan", articleRef: "art-1", submitter: "Sam Rivera",
+    conversation: [
+      { who: "Sam Rivera", role: "user", text: "I heard we now get free therapy sessions through some app. Is that true?" },
+      { who: "AI", role: "ai", text: "I don't have specific information about therapy session benefits.", kbUsed: "art-1" },
+      { who: "Jordan Blake", role: "agent", text: "Yes! As of Q1 2026, we partnered with SpringHealth. You get 12 free therapy sessions per year. Download the SpringHealth app and sign up with your work email." },
+    ],
+    agentNote: "New SpringHealth benefit not documented anywhere in KB.",
+    expectedFindings: [{ type: "missing", subject: "SpringHealth therapy benefit", agentSays: "12 free sessions/year via SpringHealth", general: true }],
+  },
+  { id: "WI-1201", title: "PTO request rejected — wrong advance notice?", status: "Resolved", agent: "jordan", articleRef: "art-2", submitter: "Emily Tran",
+    conversation: [
+      { who: "Emily Tran", role: "user", text: "I submitted PTO 4 days in advance and it was rejected. But I thought the policy changed?" },
+      { who: "AI", role: "ai", text: "Requests must be submitted at least 5 business days in advance.", kbUsed: "art-2" },
+      { who: "Jordan Blake", role: "agent", text: "You're right — the policy was updated March 2026. Advance notice is now 3 business days, not 5." },
+    ],
+    agentNote: "Policy changed March 1. KB still shows old 5-day requirement.",
+    expectedFindings: [{ type: "wrong", subject: "PTO advance notice", articleSays: "5 business days", agentSays: "3 business days (March 2026)", general: true }],
+  },
+  { id: "WI-1230", title: "How far in advance for PTO?", status: "Resolved", agent: "lisa", articleRef: "art-2", submitter: "Kevin Park",
+    conversation: [
+      { who: "Kevin Park", role: "user", text: "How many days in advance do I need to submit PTO?" },
+      { who: "AI", role: "ai", text: "PTO requests must be submitted at least 5 business days in advance.", kbUsed: "art-2" },
+      { who: "Lisa Park", role: "agent", text: "The advance notice is now 2 business days as of the March update." },
+    ],
+    agentNote: null,
+    expectedFindings: [{ type: "wrong", subject: "PTO advance notice", articleSays: "5 business days", agentSays: "2 business days (March update)", general: true }],
+  },
+  { id: "WI-1235", title: "Can't find my pay stub", status: "Resolved", agent: "jordan", articleRef: "art-3", submitter: "Nina Chen",
+    conversation: [
+      { who: "Nina Chen", role: "user", text: "Where do I find my most recent pay stub?" },
+      { who: "AI", role: "ai", text: "Log into ADP Workforce Now → Pay → Pay Statements.", kbUsed: "art-3" },
+      { who: "Nina Chen", role: "user", text: "I can't log in. Password expired." },
+      { who: "Jordan Blake", role: "agent", text: "I've reset your ADP password. Once you're in, go to Pay → Pay Statements." },
+    ],
+    agentNote: null,
+    expectedFindings: [],
+  },
+  { id: "WI-1225", title: "How to set up 2FA for GitHub Enterprise?", status: "Resolved", agent: "jordan", articleRef: null, submitter: "Tomas Reyes",
+    conversation: [
+      { who: "Tomas Reyes", role: "user", text: "IT is requiring 2FA for GitHub Enterprise. How do I set it up?" },
+      { who: "AI", role: "ai", text: "I don't have a guide for GitHub Enterprise 2FA. Let me connect you with an agent." },
+      { who: "Jordan Blake", role: "agent", text: "Go to github.com/settings/security → Enable 2FA → Choose 'Authenticator app' → Scan QR with Okta Verify → Save recovery codes." },
+    ],
+    agentNote: "No KB article for this. Third person asking this week.",
+    expectedFindings: [{ type: "creation", subject: "GitHub 2FA setup", agentSays: "Step-by-step: settings/security → enable 2FA → authenticator app → Okta Verify → recovery codes", general: true }],
+  },
+  { id: "WI-1228", title: "GitHub 2FA setup help", status: "Resolved", agent: "lisa", articleRef: null, submitter: "Amy Liu",
+    conversation: [
+      { who: "Amy Liu", role: "user", text: "Need help setting up two-factor auth for GitHub." },
+      { who: "AI", role: "ai", text: "I don't have documentation on GitHub 2FA setup." },
+      { who: "Lisa Park", role: "agent", text: "Go to GitHub settings → Security → 2FA. Use Okta Verify to scan the QR code. Save your recovery codes. Takes 2 minutes." },
+    ],
+    agentNote: "Same as others — need a KB article.",
+    expectedFindings: [{ type: "creation", subject: "GitHub 2FA setup", agentSays: "GitHub settings → Security → 2FA → Okta Verify → save recovery codes. ~2 min.", general: true }],
+  },
+];
+
+// ═══════════════════════════════════════════════════════════════════
+// STYLES
+// ═══════════════════════════════════════════════════════════════════
+
+const C = { text: "#1a1d2e", sub: "#4B5064", muted: "#8B8FA3", border: "#E8E9ED", card: "#fff", bg: "#FAFAFA",
+  red: "#A32D2D", redBg: "#FCEBEB", amber: "#854F0B", amberBg: "#FAEEDA", green: "#3B6D11", greenBg: "#EAF3DE",
+  blue: "#185FA5", blueBg: "#E6F1FB", purple: "#534AB7", purpleBg: "#EEEDFE", teal: "#0F6E56", tealBg: "#E1F5EE",
+  gray: "#5F5E5A", grayBg: "#F1EFE8" };
+const badge = (c, bg) => ({ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600, background: bg, color: c, marginRight: 6 });
+const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginBottom: 12 };
+const stepBox = (active, done) => ({ padding: "10px 14px", borderRadius: 8, background: active ? C.blueBg : done ? C.greenBg : C.bg, border: `1px solid ${active ? C.blue : done ? C.green : C.border}`, opacity: !active && !done ? 0.5 : 1, transition: "all 0.3s" });
+
+// ═══════════════════════════════════════════════════════════════════
+// PIPELINE STEP RENDERERS
+// ═══════════════════════════════════════════════════════════════════
+
+function StepTrigger({ ticket }) {
+  return <div>
+    <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.7, marginBottom: 12 }}>
+      Ticket <strong>{ticket.id}</strong> was resolved by <strong>{AGENTS[ticket.agent].name}</strong>. This triggers the pipeline because a human had to intervene — the AI chat (using KB article) didn't resolve it alone.
+    </div>
+    <div style={{ ...card, padding: 12 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 8 }}>DATA CAPTURED</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        {[
+          ["Transcript", `${ticket.conversation.length} messages`],
+          ["KB article ref", ticket.articleRef ? `${ticket.articleRef} (linked)` : "null (no article)"],
+          ["Agent notes", ticket.agentNote ? `"${ticket.agentNote.substring(0, 50)}..."` : "None"],
+          ["Agent", AGENTS[ticket.agent].name],
+        ].map(([k, v], i) => (
+          <div key={i} style={{ padding: 8, background: C.bg, borderRadius: 6, fontSize: 12 }}>
+            <div style={{ color: C.muted, fontWeight: 600, fontSize: 11 }}>{k}</div>
+            <div style={{ color: C.sub, marginTop: 2 }}>{v}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>;
+}
+
+function StepRetrieve({ ticket }) {
+  const hasArticle = ticket.articleRef !== null;
+  const article = hasArticle ? ARTICLES[ticket.articleRef] : null;
+  return <div>
+    <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.7, marginBottom: 12 }}>
+      {hasArticle ? <>
+        Article <strong>{ticket.articleRef}</strong> is already linked on this ticket — AI chat referenced it during the conversation. This is a simple DB lookup, not a search.
+        <div style={{ padding: 10, background: C.blueBg, borderRadius: 6, marginTop: 8, fontSize: 12 }}>
+          <div style={{ fontWeight: 600, color: C.blue }}>{article.title}</div>
+          <div style={{ color: C.sub, marginTop: 4, lineHeight: 1.6 }}>"{article.content}"</div>
+          <div style={{ color: C.muted, marginTop: 4 }}>Deflection rate: {article.deflection}%</div>
+        </div>
+        <div style={{ marginTop: 8, padding: 8, background: C.tealBg, borderRadius: 6, fontSize: 12, color: C.teal }}>
+          → Entering <strong>correction path</strong>. Compare this article against the resolution.
+        </div>
+      </> : <>
+        <strong>No article linked on this ticket.</strong> AI chat didn't surface any KB article — either because none exists for this topic or search didn't match.
+        <div style={{ marginTop: 8, padding: 8, background: C.purpleBg, borderRadius: 6, fontSize: 12, color: C.purple }}>
+          → Entering <strong>creation path</strong>. Extract generalizable knowledge from the resolution to seed a new article.
+        </div>
+      </>}
+    </div>
+  </div>;
+}
+
+function StepCompare({ ticket }) {
+  const findings = ticket.expectedFindings;
+  const hasArticle = ticket.articleRef !== null;
+  const article = hasArticle ? ARTICLES[ticket.articleRef] : null;
+
+  if (findings.length === 0) {
+    return <div>
+      <div style={{ padding: 12, background: C.greenBg, borderRadius: 8, fontSize: 13, lineHeight: 1.7 }}>
+        <div style={{ fontWeight: 600, color: C.green, marginBottom: 4 }}>No delta detected</div>
+        <div style={{ color: C.sub }}>The LLM compared the agent's resolution to the KB article and found no contradictions and no new information. The agent's response was consistent with the article.</div>
+        <div style={{ marginTop: 8, padding: 8, background: C.amberBg, borderRadius: 6, fontSize: 12, color: C.amber }}>
+          <strong>Echo problem note:</strong> This could mean the article is correct, OR the agent echoed wrong info from the article without realizing it. The pipeline cannot distinguish these cases. Agent feedback would catch the latter.
+        </div>
+      </div>
+    </div>;
+  }
+
+  return <div>
+    <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.7, marginBottom: 12 }}>
+      {hasArticle ? "LLM compares the agent's resolution against the KB article content. One API call." : "LLM extracts generalizable knowledge from the agent's resolution. One API call."}
+    </div>
+
+    {hasArticle && <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 6 }}>LLM INPUT</div>}
+    {hasArticle && <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+      <div style={{ flex: 1, padding: 10, background: C.bg, borderRadius: 6, fontSize: 12, border: `1px solid ${C.border}` }}>
+        <div style={{ fontWeight: 600, color: C.muted, marginBottom: 4 }}>Article content</div>
+        <div style={{ color: C.sub, lineHeight: 1.5 }}>"{article.content}"</div>
+      </div>
+      <div style={{ flex: 1, padding: 10, background: C.bg, borderRadius: 6, fontSize: 12, border: `1px solid ${C.border}` }}>
+        <div style={{ fontWeight: 600, color: C.muted, marginBottom: 4 }}>Agent's resolution</div>
+        {ticket.conversation.filter(m => m.role === "agent").map((m, i) => (
+          <div key={i} style={{ color: C.sub, lineHeight: 1.5, marginBottom: 4 }}>"{m.text}"</div>
+        ))}
+      </div>
+    </div>}
+
+    <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 6 }}>LLM OUTPUT</div>
+    {findings.map((f, i) => (
+      <div key={i} style={{ padding: 12, background: f.type === "wrong" ? C.redBg : f.type === "missing" ? C.amberBg : C.purpleBg, borderRadius: 8, marginBottom: 8, fontSize: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+          <span style={badge(f.type === "wrong" ? C.red : f.type === "missing" ? C.amber : C.purple, f.type === "wrong" ? C.redBg : f.type === "missing" ? C.amberBg : C.purpleBg)}>
+            {f.type === "wrong" ? "Wrong info" : f.type === "missing" ? "Missing info" : "New knowledge"}
+          </span>
+          <span style={{ fontWeight: 600, color: C.text }}>{f.subject}</span>
+          <span style={badge(f.general ? C.green : C.gray, f.general ? C.greenBg : C.grayBg)}>{f.general ? "General" : "Specific"}</span>
+        </div>
+        {f.type === "wrong" && <div style={{ lineHeight: 1.7, color: C.sub }}>
+          <div>Article says: <span style={{ textDecoration: "line-through", color: C.red }}>"{f.articleSays}"</span></div>
+          <div>Agent says: <span style={{ color: C.teal, fontWeight: 600 }}>"{f.agentSays}"</span></div>
+        </div>}
+        {f.type === "missing" && <div style={{ lineHeight: 1.7, color: C.sub }}>
+          <div>Article: <span style={{ color: C.amber }}>no mention of this topic</span></div>
+          <div>Agent provided: <span style={{ color: C.teal, fontWeight: 600 }}>"{f.agentSays}"</span></div>
+        </div>}
+        {f.type === "creation" && <div style={{ lineHeight: 1.7, color: C.sub }}>
+          <div>Extracted knowledge: <span style={{ color: C.purple, fontWeight: 600 }}>"{f.agentSays}"</span></div>
+        </div>}
+        <div style={{ marginTop: 6, color: C.muted, fontSize: 11 }}>Source: {AGENTS[ticket.agent].name}'s response in {ticket.id}</div>
+      </div>
+    ))}
+  </div>;
+}
+
+function StepAccumulate({ ticket, accumulator }) {
+  const findings = ticket.expectedFindings;
+  if (findings.length === 0) {
+    return <div style={{ fontSize: 13, color: C.sub }}>No findings to accumulate. Ticket had no delta.</div>;
+  }
+
+  return <div>
+    <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.7, marginBottom: 12 }}>
+      Findings are grouped by article + subject. The system checks: have we seen this same correction from other tickets?
+    </div>
+    {findings.map((f, fi) => {
+      const key = `${ticket.articleRef || "new"}::${f.subject}`;
+      const acc = accumulator[key];
+      if (!acc) return null;
+      const isConflict = acc.conflict;
+      const thresholdMet = acc.count >= (f.type === "wrong" ? 2 : 3);
+
+      return <div key={fi} style={{ ...card, borderLeft: `3px solid ${isConflict ? C.red : thresholdMet ? C.teal : acc.count > 1 ? C.amber : C.border}`, borderRadius: 0, marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{f.subject}</span>
+          <span style={badge(isConflict ? C.red : thresholdMet ? C.teal : acc.count > 1 ? C.amber : C.gray,
+            isConflict ? C.redBg : thresholdMet ? C.tealBg : acc.count > 1 ? C.amberBg : C.grayBg)}>
+            {isConflict ? "CONFLICT" : thresholdMet ? "DRAFT READY" : acc.count > 1 ? "FLAGGED" : "LOGGED"}
+          </span>
+        </div>
+
+        <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 6 }}>CORROBORATION COUNT: {acc.count}</div>
+        {acc.tickets.map((t, ti) => (
+          <div key={ti} style={{ padding: 6, fontSize: 12, color: C.sub, borderLeft: `2px solid ${C.blue}`, paddingLeft: 10, marginBottom: 4 }}>
+            <strong>{t.ticketId}</strong> — {AGENTS[t.agent]?.name}: "{t.agentSays}"
+          </div>
+        ))}
+
+        {isConflict && (
+          <div style={{ marginTop: 10, padding: 10, background: C.redBg, borderRadius: 6, fontSize: 12 }}>
+            <div style={{ fontWeight: 600, color: C.red, marginBottom: 4 }}>CONFLICT DETECTED</div>
+            <div style={{ color: C.sub, lineHeight: 1.6 }}>
+              Agents gave <strong>different answers</strong> for the same question. {acc.tickets[acc.tickets.length-2]?.agentSays !== acc.tickets[acc.tickets.length-1]?.agentSays ? `"${acc.tickets[acc.tickets.length-2]?.agentSays}" vs "${acc.tickets[acc.tickets.length-1]?.agentSays}"` : ""}. System cannot auto-draft — human verification required.
+            </div>
+          </div>
+        )}
+
+        {!isConflict && thresholdMet && (
+          <div style={{ marginTop: 10, padding: 10, background: C.tealBg, borderRadius: 6, fontSize: 12 }}>
+            <div style={{ fontWeight: 600, color: C.teal, marginBottom: 4 }}>THRESHOLD MET → generating draft</div>
+            <div style={{ color: C.sub }}>
+              {acc.count} independent tickets corroborate this finding. Confidence is high enough to generate a draft for admin review.
+              {f.type === "wrong" && " (Threshold for wrong info: 2 tickets)"}
+              {f.type === "missing" && " (Threshold for missing info: 3 tickets)"}
+              {f.type === "creation" && " (Threshold for new article: 2 tickets)"}
+            </div>
+          </div>
+        )}
+
+        {!isConflict && !thresholdMet && (
+          <div style={{ marginTop: 10, padding: 10, background: acc.count > 1 ? C.amberBg : C.bg, borderRadius: 6, fontSize: 12, color: C.sub }}>
+            {acc.count === 1 ? "Waiting for more signal. Finding is visible to admin but no auto-draft yet." :
+              "Flagged for admin attention. Need more corroboration for auto-draft."}
+            <div style={{ marginTop: 4, color: C.muted, fontSize: 11 }}>
+              Admin can always act on a single finding if they recognize it as urgent (compliance, security, etc).
+            </div>
+          </div>
+        )}
+      </div>;
+    })}
+  </div>;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════════════════════════════
+
+const STEPS = ["Trigger", "Retrieve article", "LLM compare", "Accumulate"];
+
+function App() {
+  const [processedIds, setProcessedIds] = useState([]);
+  const [activeTicketIdx, setActiveTicketIdx] = useState(null);
+  const [activeStep, setActiveStep] = useState(0);
+  const [accumulator, setAccumulator] = useState({});
+
+  const processTicket = useCallback((idx) => {
+    setActiveTicketIdx(idx);
+    setActiveStep(0);
+  }, []);
+
+  const advanceStep = useCallback(() => {
+    if (activeStep < STEPS.length - 1) {
+      const nextStep = activeStep + 1;
+      setActiveStep(nextStep);
+
+      // When reaching accumulate step, actually add to accumulator
+      if (nextStep === 3) {
+        const ticket = TICKETS[activeTicketIdx];
+        setAccumulator(prev => {
+          const next = { ...prev };
+          ticket.expectedFindings.forEach(f => {
+            const key = `${ticket.articleRef || "new"}::${f.subject}`;
+            if (!next[key]) {
+              next[key] = { subject: f.subject, type: f.type, articleId: ticket.articleRef, count: 0, tickets: [], conflict: false, values: [] };
+            }
+            next[key].count += 1;
+            next[key].tickets.push({ ticketId: ticket.id, agent: ticket.agent, agentSays: f.agentSays });
+            next[key].values.push(f.agentSays);
+            // Conflict detection: if values differ
+            const unique = [...new Set(next[key].values)];
+            if (unique.length > 1 && next[key].count >= 2) {
+              next[key].conflict = true;
+            }
+          });
+          return next;
+        });
+        // Mark as processed
+        setProcessedIds(prev => [...prev, TICKETS[activeTicketIdx].id]);
+      }
+    }
+  }, [activeStep, activeTicketIdx]);
+
+  const finishTicket = useCallback(() => {
+    setActiveTicketIdx(null);
+    setActiveStep(0);
+  }, []);
+
+  const activeTicket = activeTicketIdx !== null ? TICKETS[activeTicketIdx] : null;
+
+  return (
+    <div style={{ display: "flex", height: "100vh", fontFamily: "'Nunito Sans', system-ui, sans-serif", background: C.bg, overflow: "hidden" }}>
+      <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+      {/* LEFT: Ticket queue */}
+      <div style={{ width: 300, background: C.card, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", flexShrink: 0 }}>
+        <div style={{ padding: "16px 16px 12px" }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Resolved ticket queue</div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{TICKETS.length} resolved tickets to process</div>
+          <div style={{ fontSize: 12, color: C.teal, marginTop: 2 }}>{processedIds.length} processed · {TICKETS.length - processedIds.length} remaining</div>
+        </div>
+        <div style={{ flex: 1, overflow: "auto", padding: "0 8px 8px" }}>
+          {TICKETS.map((t, idx) => {
+            const isActive = activeTicketIdx === idx;
+            const isDone = processedIds.includes(t.id);
+            const hasFindings = t.expectedFindings.length > 0;
+            return (
+              <div key={t.id} onClick={() => !isDone && !isActive && processTicket(idx)} style={{
+                padding: "10px 12px", borderRadius: 8, marginBottom: 4, cursor: isDone ? "default" : "pointer",
+                background: isActive ? C.blueBg : isDone ? C.greenBg : C.card,
+                border: `1px solid ${isActive ? C.blue : isDone ? C.green : C.border}`,
+                opacity: isDone && !isActive ? 0.7 : 1, transition: "all 0.2s"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 11, color: C.muted }}>{t.id}</span>
+                  {isDone && <span style={badge(C.green, C.greenBg)}>done</span>}
+                  {isActive && <span style={badge(C.blue, C.blueBg)}>processing</span>}
+                  {!hasFindings && isDone && <span style={{ fontSize: 10, color: C.muted }}>no delta</span>}
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginTop: 4 }}>{t.title}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                  {AGENTS[t.agent].name} · {t.articleRef ? `KB: ${t.articleRef}` : "No KB article"}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* CENTER: Pipeline steps */}
+      <div style={{ flex: 1, overflow: "auto", padding: "20px 24px" }}>
+        {!activeTicket && (
+          <div style={{ textAlign: "center", padding: "80px 40px" }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: C.text, marginBottom: 8 }}>Resolution drafts pipeline simulator</div>
+            <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.7, maxWidth: 500, margin: "0 auto" }}>
+              Click a ticket on the left to process it through the pipeline step by step. You'll see exactly what the system does at each stage — the data it reads, the decisions it makes, and how findings accumulate across tickets.
+            </div>
+            <div style={{ fontSize: 13, color: C.muted, marginTop: 20 }}>Process tickets in order to see the accumulation logic build up.</div>
+          </div>
+        )}
+
+        {activeTicket && (
+          <div>
+            {/* Ticket header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <div style={{ width: 32, height: 32, borderRadius: "50%", background: AGENTS[activeTicket.agent].color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff" }}>{AGENTS[activeTicket.agent].initials}</div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{activeTicket.id}: {activeTicket.title}</div>
+                <div style={{ fontSize: 12, color: C.muted }}>Resolved by {AGENTS[activeTicket.agent].name} · Submitter: {activeTicket.submitter}</div>
+              </div>
+            </div>
+
+            {/* Conversation (always visible) */}
+            <div style={{ ...card, marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 10 }}>TICKET CONVERSATION</div>
+              {activeTicket.conversation.map((m, i) => (
+                <div key={i} style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: m.role === "ai" ? C.blueBg : m.role === "agent" ? AGENTS[activeTicket.agent].color : C.grayBg,
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700,
+                    color: m.role === "ai" ? C.blue : m.role === "agent" ? "#fff" : C.gray, flexShrink: 0 }}>
+                    {m.role === "ai" ? "AI" : m.role === "agent" ? AGENTS[activeTicket.agent].initials : m.who.charAt(0)}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{m.who} <span style={{ fontWeight: 400, color: C.muted }}>{m.role === "ai" ? "(AI chat)" : m.role === "agent" ? "(agent)" : "(submitter)"}</span></div>
+                    <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.6, marginTop: 2, whiteSpace: "pre-wrap" }}>{m.text}</div>
+                    {m.kbUsed && <div style={{ fontSize: 10, marginTop: 4, padding: "2px 6px", background: C.blueBg, borderRadius: 3, color: C.blue, display: "inline-block" }}>Referenced: {m.kbUsed}</div>}
+                  </div>
+                </div>
+              ))}
+              {activeTicket.agentNote && (
+                <div style={{ padding: 8, background: C.amberBg, borderRadius: 6, fontSize: 12, marginTop: 4 }}>
+                  <span style={{ fontWeight: 600, color: C.amber }}>Agent note:</span> <span style={{ color: C.sub }}>{activeTicket.agentNote}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Step indicators */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              {STEPS.map((s, i) => (
+                <div key={i} style={stepBox(i === activeStep, i < activeStep)}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: i === activeStep ? C.blue : i < activeStep ? C.green : C.muted }}>Step {i + 1}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: i === activeStep ? C.blue : i < activeStep ? C.green : C.muted }}>{s}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Active step content */}
+            <div style={{ ...card, borderLeft: `3px solid ${activeStep < 3 ? C.blue : C.teal}`, borderRadius: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 10 }}>
+                Step {activeStep + 1}: {STEPS[activeStep]}
+              </div>
+              {activeStep === 0 && <StepTrigger ticket={activeTicket} />}
+              {activeStep === 1 && <StepRetrieve ticket={activeTicket} />}
+              {activeStep === 2 && <StepCompare ticket={activeTicket} />}
+              {activeStep === 3 && <StepAccumulate ticket={activeTicket} accumulator={accumulator} />}
+            </div>
+
+            {/* Controls */}
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              {activeStep < STEPS.length - 1 && (
+                <button onClick={advanceStep} style={{ padding: "8px 20px", borderRadius: 6, background: C.blue, color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  Next step →
+                </button>
+              )}
+              {activeStep === STEPS.length - 1 && (
+                <button onClick={finishTicket} style={{ padding: "8px 20px", borderRadius: 6, background: C.teal, color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  Done — process next ticket
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* RIGHT: Accumulator state */}
+      <div style={{ width: 280, background: C.card, borderLeft: `1px solid ${C.border}`, display: "flex", flexDirection: "column", flexShrink: 0, overflow: "auto" }}>
+        <div style={{ padding: "16px 16px 12px" }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Accumulator state</div>
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Findings grouped by article + subject</div>
+        </div>
+        <div style={{ flex: 1, overflow: "auto", padding: "0 12px 12px" }}>
+          {Object.keys(accumulator).length === 0 && (
+            <div style={{ fontSize: 12, color: C.muted, padding: 16, textAlign: "center" }}>Process tickets to see findings accumulate here.</div>
+          )}
+          {Object.entries(accumulator).map(([key, acc]) => {
+            const thresholdNeeded = acc.type === "wrong" ? 2 : 3;
+            const thresholdMet = !acc.conflict && acc.count >= thresholdNeeded;
+            return (
+              <div key={key} style={{
+                padding: 10, borderRadius: 6, marginBottom: 8,
+                background: acc.conflict ? C.redBg : thresholdMet ? C.tealBg : acc.count > 1 ? C.amberBg : C.bg,
+                border: `1px solid ${acc.conflict ? C.red+"30" : thresholdMet ? C.teal+"30" : C.border}`,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{acc.subject}</span>
+                </div>
+                <div style={{ display: "flex", gap: 4, marginBottom: 6, flexWrap: "wrap" }}>
+                  <span style={badge(acc.type === "wrong" ? C.red : acc.type === "missing" ? C.amber : C.purple,
+                    acc.type === "wrong" ? C.redBg : acc.type === "missing" ? C.amberBg : C.purpleBg)}>
+                    {acc.type}
+                  </span>
+                  <span style={badge(
+                    acc.conflict ? C.red : thresholdMet ? C.teal : acc.count > 1 ? C.amber : C.gray,
+                    acc.conflict ? C.redBg : thresholdMet ? C.tealBg : acc.count > 1 ? C.amberBg : C.grayBg
+                  )}>
+                    {acc.conflict ? "CONFLICT" : thresholdMet ? "DRAFT READY" : acc.count > 1 ? "FLAGGED" : "LOGGED"}
+                  </span>
+                </div>
+
+                {/* Visual threshold meter */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                  <div style={{ flex: 1, height: 6, background: C.border, borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ width: `${Math.min((acc.count / thresholdNeeded) * 100, 100)}%`, height: "100%", background: acc.conflict ? C.red : thresholdMet ? C.teal : C.amber, borderRadius: 3, transition: "width 0.5s" }} />
+                  </div>
+                  <span style={{ fontSize: 11, color: C.muted, whiteSpace: "nowrap" }}>{acc.count}/{thresholdNeeded}</span>
+                </div>
+
+                {acc.tickets.map((t, i) => (
+                  <div key={i} style={{ fontSize: 11, color: C.sub, padding: "2px 0", borderBottom: i < acc.tickets.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                    {t.ticketId} · {AGENTS[t.agent]?.name}
+                  </div>
+                ))}
+
+                {acc.conflict && (
+                  <div style={{ marginTop: 6, fontSize: 11, color: C.red, fontWeight: 600 }}>
+                    Agents disagree — no draft possible
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Legend */}
+        <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.muted }}>
+          <div style={{ fontWeight: 600, marginBottom: 6, color: C.sub }}>Pipeline logic</div>
+          <div style={{ marginBottom: 4 }}>Wrong info threshold: 2 tickets</div>
+          <div style={{ marginBottom: 4 }}>Missing info threshold: 3 tickets</div>
+          <div style={{ marginBottom: 4 }}>Creation threshold: 2 tickets</div>
+          <div style={{ marginBottom: 4 }}>Conflict: agents give different answers</div>
+          <div>All findings visible to admin from ticket 1</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.render(React.createElement(App), document.getElementById("root"));
+</script>
+</body>
+</html>

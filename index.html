@@ -309,17 +309,36 @@ td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; 
 
 <div class="wrap">
 
-<h3>B. The reframe: levels → layers</h3>
+<h3>B. Early prototype: step-by-step pipeline walkthrough</h3>
+<p>Walks through one ticket at a time to demonstrate the core comparison mechanic — how the system retrieves the linked article, runs an LLM comparison, and accumulates findings. This was our first proof of concept before expanding to the full six-classification model.</p>
+</div>
+
+<div class="wide">
+<div class="proto-frame">
+  <div class="proto-bar">
+    <div class="dot" style="background: #EF4444;"></div>
+    <div class="dot" style="background: #F59E0B;"></div>
+    <div class="dot" style="background: #22C55E;"></div>
+    <span>Early prototype — click tickets on the left, advance step by step</span>
+    <a href="pipeline-simulator-old.html" target="_blank">Open full screen ↗</a>
+  </div>
+  <iframe src="pipeline-simulator-old.html" style="height: 700px;"></iframe>
+</div>
+</div>
+
+<div class="wrap">
+
+<h3>C. The reframe: levels → layers</h3>
 <p>After jamming with Derek, we realized the eight levels weren't separate features — most were inputs to one real feature. We stopped thinking in levels and reframed as layers of the same system. Each layer builds on the last. Each is independently shippable. The "L3 Resolution Drafts" became the core, with agent feedback, staleness detection, and gap detection becoming signals that feed into it rather than standalone concepts.</p>
 
 <div class="callout gray"><strong>Derek's feedback from our first session:</strong> "L3 is doable from our POV" and "maps closely to current thinking." Key concerns: where to surface recommendations, notification workflows, KB-queue relationship evolution.</div>
 
-<h3>C. Converging with engineering</h3>
+<h3>D. Converging with engineering</h3>
 <p>Derek independently developed a model with three classifications (Staleness, Gap, Logic/Action Limitation), a four-phase pipeline (Ingestion → Verification → Synthesis → Assignment), and a strategy for distinguishing search failures from content gaps. His model's key contribution: the "Action Limitation" category (resolutions requiring human authority aren't KB problems) and the Verification step (re-scan KB before concluding an article is missing).</p>
 
 <p>The unified model merges both: six classifications (Derek's three expanded with Kritika's "incomplete" and "too complex" distinctions), two resolution types (Kritika's informational vs action-based split), two customer journeys, two intervention points, and the blind spots neither model initially covered. In a follow-up session, we aligned on Derek's three as the engineering-facing framing (Outdated, Missing, Logic/Action Limitation) — the six remain useful for design and diagnostic precision but aren't all distinct pipeline branches.</p>
 
-<h3>D. Reference documents</h3>
+<h3>E. Reference documents</h3>
 <p>Full-detail versions for deeper reading:</p>
 <ul style="font-size: 14px; color: #4B5064; padding-left: 20px; margin: 12px 0;">
   <li><a href="kb-self-learning-unified-model.html" style="color: #185FA5;" target="_blank">Unified model — full detail doc</a></li>
