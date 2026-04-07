@@ -126,7 +126,7 @@ td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; 
 <section id="model">
 <h2>The model</h2>
 
-<p>Every human-resolved ticket is a signal that the KB failed. The system classifies <em>why</em> it failed, then acts accordingly. Six classifications, two resolution types, two customer journeys — unified in one pipeline.</p>
+<p>Every human-resolved ticket is a signal that the KB failed. The system classifies <em>why</em> it failed, then acts accordingly. Eight classifications, two resolution types, two customer journeys — unified in one pipeline.</p>
 
 <h3 id="flow">End-to-end flow: where AI intervenes</h3>
 <p>The diagram below maps the full ticket lifecycle left to right. Each colored tag marks an AI intervention point — backend detection, frontend surface, proposed opportunity, or known blind spot.</p>
@@ -153,7 +153,7 @@ td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; 
   When an agent resolves a ticket and no article was involved, the system prompts them to save their response as a draft article. The KB grows from real demand instead of upfront bulk authoring. Drafts go to a review queue, not straight to publish — the admin batch-reviews them for quality control. See the <a href="#intervention-points" style="color: inherit; font-weight: 600;">Two intervention points</a> section below for tradeoffs and risks.
 </div>
 
-<h3 id="classifications">Why did AI fail? Six classifications</h3>
+<h3 id="classifications">Why did AI fail? Eight classifications</h3>
 
 <table>
   <tr><th>Classification</th><th>What happened</th><th>System response</th></tr>
@@ -161,6 +161,7 @@ td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; 
   <tr><td><strong>Incomplete article</strong></td><td>Article exists but doesn't cover this topic.</td><td>Draft an addition to the article.</td></tr>
   <tr><td><strong>No article exists</strong></td><td>Agent answered from scratch. Nothing in KB.</td><td>Draft a new article from the resolution.</td></tr>
   <tr><td><strong>Too complex</strong></td><td>Article exists and was found, but agent had to rephrase it for the user.</td><td>Flag for simplification. Opportunity: store the rephrased version to improve future match rates. Gray area — could also mean the user wanted to be spoon-fed.</td></tr>
+  <tr><td><strong>Insufficient detail</strong></td><td>Article covers the right topic but is too shallow or vague for the user to act on. Agent had to fill in specific steps, links, or context that the article glossed over.</td><td>Enrichment signal. The agent's more detailed response can be used to flesh out the article. Unlike too complex (which needs simplification), this needs expansion.</td></tr>
   <tr><td><strong>Action required</strong></td><td>Agent performed an action (reset, provisioned, approved). Not a knowledge problem.</td><td>Propose a routing article: "This needs a human — AI creates ticket + sets expectations."</td></tr>
   <tr><td><strong>Search failure</strong></td><td>Article exists but AI didn't find it.</td><td>Retrieval/RAG problem, not content. Log separately.</td></tr>
   <tr><td><strong>Wrong article ranked higher</strong></td><td>Multiple articles could answer the query. The system surfaced a stale or less relevant one instead of the better one. The right answer exists in the KB, just in a different article.</td><td>Ranking signal: downrank articles that lead to escalation, uprank articles that lead to successful deflection. The resolution drafts pipeline generates this signal automatically.</td></tr>
@@ -303,7 +304,7 @@ td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; 
 
 <div class="discuss">Are we logging which KB article gets surfaced per ticket? This is the prerequisite for everything.</div>
 
-<div class="discuss">Does the model make sense? The six classifications, two resolution types, two customer journeys, two intervention points, the blind spots. What's missing? What's wrong?</div>
+<div class="discuss">Does the model make sense? The eight classifications, two resolution types, two customer journeys, two intervention points, the blind spots. What's missing? What's wrong?</div>
 
 <div class="discuss">What's EA scope? Foundation (visibility only, no LLM)? Foundation + classification + diagnosis? Does draft generation make it into EA?</div>
 
@@ -361,7 +362,7 @@ td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; 
 <div class="wrap">
 
 <h3 id="earlier-prototype">B. Resolution drafts — pipeline walkthrough (earlier version)</h3>
-<p>After narrowing from the L0–L7 spectrum to Resolution Drafts, this prototype explored the core comparison mechanic in depth — walking through one ticket at a time to show how the system retrieves the linked article, runs an LLM comparison, and accumulates findings across tickets. This was later expanded into the full six-classification model shown in the main prototype above.</p>
+<p>After narrowing from the L0–L7 spectrum to Resolution Drafts, this prototype explored the core comparison mechanic in depth — walking through one ticket at a time to show how the system retrieves the linked article, runs an LLM comparison, and accumulates findings across tickets. This was later expanded into the full eight-classification model shown in the main prototype above.</p>
 </div>
 
 <div class="wide">
