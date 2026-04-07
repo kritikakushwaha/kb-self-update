@@ -84,6 +84,7 @@ td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; 
       <a href="#customer-journeys">Customer journeys</a>
       <a href="#intervention-points">Intervention points</a>
       <a href="#layered-approach">Layered approach</a>
+      <a href="#confidence-scoring">Confidence scoring</a>
       <a href="#public-vs-playbooks">Public KB vs playbooks</a>
     </div>
   </div>
@@ -225,6 +226,24 @@ td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; 
   <tr><td><strong>+ Draft generation</strong></td><td>System writes the fix. Correction drafts, creation drafts, routing articles.</td><td>Yes</td></tr>
   <tr><td><strong>+ Outcome tracking</strong></td><td>Deflection rate before/after. Draft acceptance rate. Closed-loop.</td><td>No</td></tr>
 </table>
+
+<h3 id="confidence-scoring">Confidence scoring</h3>
+<p>Not all findings are equal. A single agent making a correction is a signal. Three agents independently making the same correction — without seeing each other's responses — is high-confidence evidence. Confidence scoring turns this into a number the system can act on: surface high-confidence findings to admins first, hold low-confidence ones for review, and suppress noise before it reaches a draft.</p>
+
+<table>
+  <tr><th>Variable</th><th>Effect on confidence</th></tr>
+  <tr><td>Number of agents making the same correction independently</td><td>Strong positive — corroboration is the primary signal</td></tr>
+  <tr><td>Agent agreement (all say the same thing)</td><td>Strong positive — no conflict, clean consensus</td></tr>
+  <tr><td>Agent disagreement on the same article</td><td>Negative — flags for human review, not draft generation</td></tr>
+  <tr><td>Time recency of tickets</td><td>Positive — recent corrections outweigh older ones</td></tr>
+  <tr><td>Article age since last update</td><td>Positive — older articles more likely to be stale</td></tr>
+  <tr><td>Ticket escalation rate for an article</td><td>Positive — high escalation rate corroborates failure signal</td></tr>
+  <tr><td>Single agent, single ticket</td><td>Low — may reflect agent error, not article failure</td></tr>
+  <tr><td>Agent is new / low trust score</td><td>Negative — weight by agent reliability over time</td></tr>
+  <tr><td>Correction contradicts another high-confidence finding</td><td>Strong negative — hold both, escalate to admin</td></tr>
+</table>
+
+<p style="font-size: 13px; color: #8B8FA3; margin-top: 8px;">For EA, confidence scoring may be as simple as corroboration count plus agent agreement. Full weighting (recency, agent trust, escalation rate) is a later-stage investment once the pipeline is generating enough data to calibrate against.</p>
 
 <h3 id="public-vs-playbooks">Public KB vs. playbooks (private KB)</h3>
 
@@ -400,8 +419,8 @@ td { padding: 10px 12px; border-bottom: 1px solid #F5F5F7; vertical-align: top; 
 </div>
 
 <script>
-const ANCHORS = ['model','flow','classifications','resolution-types','customer-journeys','intervention-points','layered-approach','public-vs-playbooks','proof','blind-spots','engineering-alignment','appendix','l0-l7','earlier-prototype','reframe','converging','reference'];
-const PARENT = { 'flow':'model','classifications':'model','resolution-types':'model','customer-journeys':'model','intervention-points':'model','layered-approach':'model','public-vs-playbooks':'model','blind-spots':'questions','engineering-alignment':'questions','l0-l7':'appendix','earlier-prototype':'appendix','reframe':'appendix','converging':'appendix','reference':'appendix' };
+const ANCHORS = ['model','flow','classifications','resolution-types','customer-journeys','intervention-points','layered-approach','confidence-scoring','public-vs-playbooks','proof','blind-spots','engineering-alignment','appendix','l0-l7','earlier-prototype','reframe','converging','reference'];
+const PARENT = { 'flow':'model','classifications':'model','resolution-types':'model','customer-journeys':'model','intervention-points':'model','layered-approach':'model','confidence-scoring':'model','public-vs-playbooks':'model','blind-spots':'questions','engineering-alignment':'questions','l0-l7':'appendix','earlier-prototype':'appendix','reframe':'appendix','converging':'appendix','reference':'appendix' };
 
 function upd() {
   let activeId = ANCHORS[0];
