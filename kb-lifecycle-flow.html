@@ -70,6 +70,8 @@ h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
 <div class="node"><h4>Too complex</h4><p>Right info, user can't follow</p></div>
 <div class="node"><h4>Action required</h4><p>Needs human, not knowledge</p></div>
 <div class="node"><h4>Search failure</h4><p>Article exists, not surfaced</p></div>
+<div class="node"><h4>Wrong article ranked higher</h4><p>Right answer exists in different article</p></div>
+<div class="node"><h4>Insufficient detail</h4><p>Covers topic but too shallow to act on</p></div>
 </div>
 
 <div class="conn">→</div>
@@ -170,6 +172,11 @@ h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
 <span class="ai-tag ai-frontend">AI frontend</span>
 <h4>Conflict alert</h4>
 <p>"Agent A said 3 days, Agent B said 2 days. Human verification needed."</p>
+</div>
+<div class="node" style="border-color: #B5D4F4;">
+<span class="ai-tag ai-backend">AI backend</span>
+<h4>Ranking signal</h4>
+<p>Wrong article surfaced? Downrank it. Right article led to deflection? Uprank it. Feeds the retrieval layer, not just the content layer.</p>
 </div>
 </div>
 
